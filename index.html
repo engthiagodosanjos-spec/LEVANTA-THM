@@ -266,8 +266,23 @@ function jsonp(params){
     document.body.appendChild(s);
   });
 }
+function apiGet(params){
+  var qs = [];
+  for(var k in params){
+    if(params.hasOwnProperty(k))
+      qs.push(encodeURIComponent(k) + "=" + encodeURIComponent(params[k]));
+  }
+  var url = URL_WEBAPP + "?" + qs.join("&");
+  // Safari aceita fetch GET; se por algum motivo falhar, cai no JSONP.
+  return fetch(url, { method:"GET" }).then(function(r){
+    if(!r.ok) throw new Error("http " + r.status);
+    return r.json();
+  }).catch(function(){
+    return jsonp(params);
+  });
+}
 function apiPost(payload){
-  return jsonp(payload);
+  return apiGet(payload);
 }
 
 /* =========================================================
@@ -568,8 +583,8 @@ function enviarFila(pend,i){
       body: JSON.stringify(p)
     }).catch(function(){ return null; });
   }).then(function(){
-    // Confirma por GET/JSONP se o levantamento foi gravado.
-    return jsonp({ acao:"existe", id:l.id });
+    // Confirma por GET se o levantamento foi gravado.
+    return apiGet({ acao:"existe", id:l.id });
   }).then(function(r){
     if(r && r.ok && r.existe){
       l.sincronizado = true;
