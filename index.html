@@ -90,6 +90,12 @@
   .tag.ok{background:#E6F6EC; color:#1E6B40}
   .tag.aberto{background:#E8F0FB; color:#17408B}
   .mini-form{background:#fff; border:1px solid var(--borda); border-radius:16px; padding:16px; margin-bottom:14px}
+  .card-local{background:#fff; border:1px solid var(--borda); border-radius:14px; padding:14px 16px; margin-bottom:10px}
+  .card-topo{display:flex; justify-content:space-between; align-items:center; gap:10px}
+  .card-btns{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px}
+  .btn-mini{padding:13px; border:none; border-radius:12px; font-weight:700; font-size:15px; cursor:pointer}
+  .btn-mini.azul{background:#E8F0FB; color:var(--azul)}
+  .btn-mini.verm{background:var(--vermelho-bg); color:var(--vermelho)}
   .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#15233B;
     color:#fff; padding:14px 20px; border-radius:30px; font-size:16px; z-index:50; opacity:0;
     transition:opacity .2s; pointer-events:none; max-width:90%}
@@ -205,7 +211,7 @@ function novoLevantamento(){
     id: "LEV-" + formataId(new Date()),
     dataHora: new Date().toLocaleString("pt-BR"),
     colaborador:"", cliente:"",
-    tipoRamal:"", disjuntor:"", bitolaCabo:"",
+    tipoRamal:"", disjuntor:"", polosDisjuntor:"", bitolaCabo:"",
     padraoLat:"", padraoLng:"", trafoLat:"", trafoLng:"",
     numeroTrafo:"", potenciaTrafo:"",
     querDocumentos:false, observacoes:"",
@@ -247,6 +253,14 @@ function lerTodosDB(){
     var r = tx.objectStore("levantamentos").getAll();
     r.onsuccess = function(){ res(r.result||[]); };
     r.onerror = function(){ rej(r.error); };
+  });
+}
+function removerDB(id){
+  return new Promise(function(res,rej){
+    var tx = DB.transaction("levantamentos","readwrite");
+    tx.objectStore("levantamentos").delete(id);
+    tx.oncomplete = function(){ res(); };
+    tx.onerror = function(){ rej(tx.error); };
   });
 }
 
@@ -368,6 +382,7 @@ function renderPasso(){
   }
   else if(et.chave==="disj"){
     c.appendChild(blocoNumeros("Disjuntor (A)", "disjuntor", CFG.disjuntores));
+    c.appendChild(blocoPolos());
     c.appendChild(blocoFotos("disjuntor", MAX_FOTOS));
   }
   else if(et.chave==="bitola"){
@@ -460,6 +475,25 @@ function blocoRamal(){
     grid.appendChild(b);
   });
   box.appendChild(l); box.appendChild(grid); return box;
+}
+function blocoPolos(){
+  var box=document.createElement("div");
+  var l=document.createElement("div"); l.className="rotulo"; l.textContent="Polos do disjuntor";
+  box.appendChild(l);
+  var grid=document.createElement("div");
+  ["Monopolar","Bipolar","Tripolar"].forEach(function(op){
+    var b=document.createElement("button");
+    b.className="opc-btn"+(lev.polosDisjuntor===op?" sel":"");
+    b.style.width="100%"; b.style.marginBottom="10px";
+    b.textContent=op;
+    b.onclick=function(){
+      lev.polosDisjuntor=op;
+      Array.prototype.forEach.call(grid.children,function(x){ x.classList.remove("sel"); });
+      b.classList.add("sel");
+    };
+    grid.appendChild(b);
+  });
+  box.appendChild(grid); return box;
 }
 function blocoGPS(alvo){
   var box=document.createElement("div");
@@ -625,6 +659,7 @@ function blocoRevisao(){
   box.appendChild(item("Nº transformador", lev.numeroTrafo));
   box.appendChild(item("Potência (kVA)", lev.potenciaTrafo));
   box.appendChild(item("Disjuntor", lev.disjuntor?lev.disjuntor+" A":""));
+  box.appendChild(item("Polos do disjuntor", lev.polosDisjuntor));
   box.appendChild(item("Bitola do cabo", lev.bitolaCabo?lev.bitolaCabo+" mm²":""));
   box.appendChild(item("Fotos/vídeo", lev.fotos.length+" arquivo(s)"));
   return box;
@@ -679,7 +714,7 @@ function prepararEnvio(l){
   });
   return p.then(function(){
     return { acao:"enviar", id:l.id, dataHora:l.dataHora, colaborador:l.colaborador, cliente:l.cliente,
-      tipoRamal:l.tipoRamal, disjuntor:l.disjuntor, bitolaCabo:l.bitolaCabo,
+      tipoRamal:l.tipoRamal, disjuntor:l.disjuntor, polosDisjuntor:l.polosDisjuntor, bitolaCabo:l.bitolaCabo,
       padraoLat:l.padraoLat, padraoLng:l.padraoLng, trafoLat:l.trafoLat, trafoLng:l.trafoLng,
       numeroTrafo:l.numeroTrafo, potenciaTrafo:l.potenciaTrafo,
       observacoes:l.observacoes, fotos:fotos };
@@ -701,8 +736,7 @@ function atualizarListas(){
     if(lista.length){
       sec.appendChild(tituloSecao("Neste aparelho"));
       lista.slice().reverse().forEach(function(l){
-        sec.appendChild(linhaLev(l.cliente||"Sem cliente", l.dataHora,
-          l.sincronizado?"Enviado":"Pendente", l.sincronizado?"ok":"pend"));
+        sec.appendChild(cardLocal(l));
       });
     }
   });
@@ -725,6 +759,30 @@ function atualizarListas(){
   }
 }
 function tituloSecao(t){ var d=document.createElement("div"); d.className="secao-titulo"; d.textContent=t; return d; }
+function cardLocal(l){
+  var card=document.createElement("div"); card.className="card-local";
+  var topo=document.createElement("div"); topo.className="card-topo";
+  var esq=document.createElement("div");
+  esq.innerHTML="<b>"+(l.cliente||"Sem cliente")+"</b><br><span style='color:#5A6B82;font-size:14px'>"+(l.dataHora||"")+"</span>";
+  var tag=document.createElement("span");
+  tag.className="tag "+(l.sincronizado?"ok":"pend");
+  tag.textContent=l.sincronizado?"Enviado":"Pendente";
+  topo.appendChild(esq); topo.appendChild(tag);
+
+  var btns=document.createElement("div"); btns.className="card-btns";
+  var bE=document.createElement("button"); bE.className="btn-mini azul"; bE.textContent="✏️ Editar";
+  bE.onclick=function(){ abrirWizard(l); };
+  var bX=document.createElement("button"); bX.className="btn-mini verm"; bX.textContent="🗑️ Excluir";
+  bX.onclick=function(){
+    var aviso = l.sincronizado ? " (Continuará salvo no Drive.)" : "";
+    if(confirm("Excluir este levantamento deste aparelho?"+aviso)){
+      removerDB(l.id).then(function(){ toast("Levantamento excluído."); atualizarListas(); });
+    }
+  };
+  btns.appendChild(bE); btns.appendChild(bX);
+  card.appendChild(topo); card.appendChild(btns);
+  return card;
+}
 function linhaLev(titulo, sub, tagTxt, tagCls){
   var row=document.createElement("div"); row.className="lista-lev";
   var esq=document.createElement("div");
