@@ -38,11 +38,12 @@
   p.sub{color:var(--sec); font-size:18px; margin:0 0 22px}
   .campo{display:block; width:100%; padding:16px; font-size:18px; border:1px solid var(--borda);
     border-radius:14px; background:#fff; margin-bottom:14px; -webkit-appearance:none; appearance:none}
+  .campo-grande{font-size:24px; font-weight:700; text-align:center}
   select.campo{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><path d='M4 6l4 4 4-4' fill='none' stroke='%235A6B82' stroke-width='2'/></svg>");
     background-repeat:no-repeat; background-position:right 16px center}
-  .preview-box{background:#fff; border:1px solid var(--borda); border-radius:16px; min-height:140px;
+  .preview-box{background:#fff; border:1px solid var(--borda); border-radius:16px; min-height:120px;
     display:flex; align-items:center; justify-content:center; margin-bottom:16px; overflow:hidden}
-  .preview-box .raio{font-size:60px}
+  .preview-box .raio{font-size:56px}
   .btn{display:flex; align-items:center; justify-content:center; gap:10px; width:100%;
     padding:20px; font-size:19px; font-weight:700; border-radius:16px; border:none;
     cursor:pointer; margin-bottom:14px}
@@ -50,10 +51,10 @@
   .btn-azul:active{background:var(--azul-esc)}
   .btn-branco{background:#fff; color:var(--azul); border:1px solid var(--borda)}
   .ajuda{color:var(--sec); font-size:15px; margin:4px 0 12px}
-  .rotulo{font-weight:700; font-size:16px; margin:6px 0 8px}
+  .rotulo{font-weight:700; font-size:16px; margin:10px 0 8px}
   .fotos{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px}
   .foto-card{background:#fff; border:1px solid var(--borda); border-radius:16px; padding:10px}
-  .foto-card img{width:100%; height:120px; object-fit:cover; border-radius:10px; display:block}
+  .foto-card img, .foto-card video{width:100%; height:120px; object-fit:cover; border-radius:10px; display:block}
   .foto-remover{width:100%; margin-top:8px; padding:12px; border:none; border-radius:12px;
     background:var(--vermelho-bg); color:var(--vermelho); font-weight:700; font-size:15px; cursor:pointer}
   .acoes{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:8px}
@@ -63,6 +64,10 @@
   .opc-btn{padding:20px; font-size:19px; font-weight:800; border-radius:16px;
     border:2px solid var(--borda); background:#fff; color:var(--texto); cursor:pointer}
   .opc-btn.sel{border-color:var(--azul); background:#E8F0FB; color:var(--azul)}
+  .grade-num{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:10px}
+  .num-btn{padding:20px 6px; font-size:26px; font-weight:800; border-radius:16px;
+    border:2px solid var(--borda); background:#fff; color:var(--texto); cursor:pointer; line-height:1.1}
+  .num-btn.sel{border-color:var(--azul); background:#E8F0FB; color:var(--azul)}
   .coord-ok{background:#E9F7EF; border:1px solid #BFE6CF; color:#1E6B40; border-radius:14px;
     padding:14px 16px; font-size:16px; margin-bottom:14px}
   .revisao-item{background:#fff; border:1px solid var(--borda); border-radius:14px;
@@ -137,7 +142,7 @@
   <div id="tela-wizard" class="hidden">
     <div class="barra-topo">
       <button class="voltar-link" id="btn-lista">← Levantamentos</button>
-      <span class="etapa-num">Etapa <span id="et-atual">1</span> de <span id="et-total">9</span></span>
+      <span class="etapa-num">Etapa <span id="et-atual">1</span> de <span id="et-total">11</span></span>
     </div>
     <div class="progresso"><div class="progresso-fill" id="progresso"></div></div>
 
@@ -159,15 +164,17 @@
 
 <script>
 /* =========================================================
-   CONFIGURAÇÃO — preencha depois de publicar o Web App (GAS)
+   CONFIGURAÇÃO
    ========================================================= */
-var URL_WEBAPP = "https://script.google.com/macros/s/AKfycbwcjteFLt7YNOKI_VwQ5EjukkUUm57JTyBFPwsb3OuhEjOh_mC7sZDcCjdKW9_r_OHAsw/exec"; // já preenchido
+var URL_WEBAPP = "https://script.google.com/macros/s/AKfycbwcjteFLt7YNOKI_VwQ5EjukkUUm57JTyBFPwsb3OuhEjOh_mC7sZDcCjdKW9_r_OHAsw/exec";
 
 var CFG_PADRAO = {
   bitolas:       ["6","10","16","25","35","50"],
   disjuntores:   ["25","32","40","50","63","70","80","100"],
   colaboradores: []
 };
+var POTENCIAS_KVA = ["3","5","10","15","25","30","45","75","112,5","Outros"];
+var MAX_FOTOS = 3; // até 3 fotos por segmento
 
 /* =========================================================
    ETAPAS
@@ -176,11 +183,13 @@ var ETAPAS = [
   { chave:"ident",    titulo:"Identificação",            sub:"Selecione o colaborador e o cliente." },
   { chave:"gpsPad",   titulo:"Coordenada do padrão",     sub:"Fique perto do padrão e capture a localização." },
   { chave:"fotoPad",  titulo:"Padrão de entrada",        sub:"Fotografe o padrão e informe o tipo de ramal." },
-  { chave:"disj",     titulo:"Disjuntor",                sub:"Selecione o disjuntor e tire uma foto (opcional)." },
-  { chave:"bitola",   titulo:"Bitola do cabo",           sub:"Selecione a bitola do cabo do padrão." },
+  { chave:"disj",     titulo:"Disjuntor",                sub:"Escolha o disjuntor e tire até 3 fotos." },
+  { chave:"bitola",   titulo:"Bitola do cabo",           sub:"Escolha a bitola do cabo do padrão." },
   { chave:"gpsTrafo", titulo:"Coord. do transformador",  sub:"Fique perto do transformador e capture a localização." },
+  { chave:"fotoTrafo",titulo:"Transformador",            sub:"Fotografe o transformador e informe os dados." },
   { chave:"outras",   titulo:"Outras fotos",             sub:"Fotos adicionais que ajudem no projeto (até 3)." },
   { chave:"docs",     titulo:"Documentos",               sub:"Deseja recolher documentos do cliente?" },
+  { chave:"video",    titulo:"Vídeo",                    sub:"Se precisar, grave um vídeo de até 20 s." },
   { chave:"revisao",  titulo:"Revisão",                  sub:"Observações, conferência e salvar." }
 ];
 
@@ -198,8 +207,9 @@ function novoLevantamento(){
     colaborador:"", cliente:"",
     tipoRamal:"", disjuntor:"", bitolaCabo:"",
     padraoLat:"", padraoLng:"", trafoLat:"", trafoLng:"",
+    numeroTrafo:"", potenciaTrafo:"",
     querDocumentos:false, observacoes:"",
-    fotos:[] // { categoria, blob }
+    fotos:[] // { categoria, blob, mime }
   };
 }
 function formataId(d){
@@ -241,9 +251,7 @@ function lerTodosDB(){
 }
 
 /* =========================================================
-   API
-   - Leituras e ações leves: JSONP via GET (à prova de CORS no Apps Script)
-   - Envio com fotos: POST (grava) + confirmação por JSONP
+   API — fetch GET (Safari aceita) + JSONP de reserva
    ========================================================= */
 function jsonp(params){
   return new Promise(function(res, rej){
@@ -273,7 +281,6 @@ function apiGet(params){
       qs.push(encodeURIComponent(k) + "=" + encodeURIComponent(params[k]));
   }
   var url = URL_WEBAPP + "?" + qs.join("&");
-  // Safari aceita fetch GET; se por algum motivo falhar, cai no JSONP.
   return fetch(url, { method:"GET" }).then(function(r){
     if(!r.ok) throw new Error("http " + r.status);
     return r.json();
@@ -281,12 +288,10 @@ function apiGet(params){
     return jsonp(params);
   });
 }
-function apiPost(payload){
-  return apiGet(payload);
-}
+function apiPost(payload){ return apiGet(payload); }
 
 /* =========================================================
-   FOTOS
+   FOTOS / VÍDEO
    ========================================================= */
 function comprimirFoto(file){
   return new Promise(function(res){
@@ -336,7 +341,6 @@ function abrirWizard(prefill){
 }
 function irPasso(n){
   if(n<0 || n>=ETAPAS.length) return;
-  // regra: ramal obrigatório para sair da etapa de foto do padrão
   if(ETAPAS[passo].chave==="fotoPad" && n>passo && !lev.tipoRamal){
     toast("Selecione o tipo de ramal (aéreo ou subterrâneo)."); return;
   }
@@ -359,18 +363,24 @@ function renderPasso(){
   else if(et.chave==="gpsPad"){ c.appendChild(blocoGPS("padrao")); }
   else if(et.chave==="gpsTrafo"){ c.appendChild(blocoGPS("trafo")); }
   else if(et.chave==="fotoPad"){
-    c.appendChild(blocoFotos("padrao", 2));
+    c.appendChild(blocoFotos("padrao_de_entrada", MAX_FOTOS));
     c.appendChild(blocoRamal());
   }
   else if(et.chave==="disj"){
-    c.appendChild(blocoSelect("Disjuntor (A)", "disjuntor", CFG.disjuntores, "Selecione o disjuntor"));
-    c.appendChild(blocoFotos("disjuntor", 1));
+    c.appendChild(blocoNumeros("Disjuntor (A)", "disjuntor", CFG.disjuntores));
+    c.appendChild(blocoFotos("disjuntor", MAX_FOTOS));
   }
   else if(et.chave==="bitola"){
-    c.appendChild(blocoSelect("Bitola do cabo (mm²)", "bitolaCabo", CFG.bitolas, "Selecione a bitola"));
+    c.appendChild(blocoNumeros("Bitola do cabo (mm²)", "bitolaCabo", CFG.bitolas));
   }
-  else if(et.chave==="outras"){ c.appendChild(blocoFotos("outras", 3)); }
+  else if(et.chave==="fotoTrafo"){
+    c.appendChild(blocoFotos("transformador", MAX_FOTOS));
+    c.appendChild(inputTexto("Número do transformador (opcional)", "numeroTrafo"));
+    c.appendChild(blocoNumeros("Potência do transformador (kVA)", "potenciaTrafo", POTENCIAS_KVA));
+  }
+  else if(et.chave==="outras"){ c.appendChild(blocoFotos("outras", MAX_FOTOS)); }
   else if(et.chave==="docs"){ c.appendChild(blocoDocumentos()); }
+  else if(et.chave==="video"){ c.appendChild(blocoVideo()); }
   else if(et.chave==="revisao"){ c.appendChild(blocoRevisao()); }
 }
 
@@ -399,9 +409,39 @@ function blocoSelect(label, campo, lista, placeholder){
   box.appendChild(l); box.appendChild(s);
   if((!lista || !lista.length) && (campo==="colaborador")){
     var av=document.createElement("div"); av.className="ajuda";
-    av.textContent="Lista de colaboradores ainda não carregada. Abra o app com internet uma vez para baixá-la.";
+    av.textContent="Lista ainda não carregada. Abra o app com internet uma vez para baixá-la.";
     box.appendChild(av);
   }
+  return box;
+}
+// Seleção com NÚMEROS GRANDES (idoso) + campo digitável.
+function blocoNumeros(label, campo, opcoes){
+  var box=document.createElement("div");
+  var l=document.createElement("div"); l.className="rotulo"; l.textContent=label;
+  box.appendChild(l);
+  var inp=document.createElement("input");
+  inp.className="campo campo-grande"; inp.type="text"; inp.inputMode="decimal";
+  inp.placeholder="Toque num número ou digite";
+  inp.value=lev[campo]||"";
+  box.appendChild(inp);
+  var grid=document.createElement("div"); grid.className="grade-num";
+  function marcar(){
+    Array.prototype.forEach.call(grid.children, function(b){
+      b.classList.toggle("sel", b.getAttribute("data-v")===String(lev[campo]));
+    });
+  }
+  inp.oninput=function(){ lev[campo]=inp.value; marcar(); };
+  (opcoes||[]).forEach(function(v){
+    var b=document.createElement("button");
+    b.className="num-btn"; b.textContent=v; b.setAttribute("data-v",v);
+    b.onclick=function(){
+      if(v==="Outros"){ lev[campo]=""; inp.value=""; inp.focus(); }
+      else { lev[campo]=v; inp.value=v; }
+      marcar();
+    };
+    grid.appendChild(b);
+  });
+  box.appendChild(grid); marcar();
   return box;
 }
 function blocoRamal(){
@@ -448,16 +488,13 @@ function blocoGPS(alvo){
 }
 function blocoFotos(categoria, maxFotos){
   var box=document.createElement("div");
-  var prev=document.createElement("div"); prev.className="preview-box";
-  prev.innerHTML='<span class="raio">⚡</span>'; box.appendChild(prev);
-
   var input=document.createElement("input");
   input.type="file"; input.accept="image/*"; input.capture="environment"; input.style.display="none";
   input.onchange=function(){
     if(!input.files||!input.files[0]) return;
     if(contaFotos(categoria)>=maxFotos){ toast("Máximo de "+maxFotos+" foto(s)."); input.value=""; return; }
     comprimirFoto(input.files[0]).then(function(blob){
-      lev.fotos.push({ categoria:categoria, blob:blob }); input.value=""; galeriaRender();
+      lev.fotos.push({ categoria:categoria, blob:blob, mime:"image/jpeg" }); input.value=""; galeriaRender();
     });
   };
   var btn=document.createElement("button");
@@ -466,7 +503,7 @@ function blocoFotos(categoria, maxFotos){
   box.appendChild(btn); box.appendChild(input);
 
   var ajuda=document.createElement("div"); ajuda.className="ajuda";
-  ajuda.textContent="Até "+maxFotos+" foto(s) nesta categoria.";
+  ajuda.textContent="Até "+maxFotos+" foto(s) nesta etapa.";
   box.appendChild(ajuda);
 
   var galeria=document.createElement("div"); galeria.className="fotos"; box.appendChild(galeria);
@@ -483,52 +520,92 @@ function blocoFotos(categoria, maxFotos){
   }
   galeriaRender(); return box;
 }
+function blocoUmaFoto(categoria, rotulo){
+  var box=document.createElement("div");
+  box.appendChild(rotuloSecao(rotulo));
+  box.appendChild(blocoFotos(categoria, 1));
+  return box;
+}
 function blocoDocumentos(){
   var box=document.createElement("div");
   var grid=document.createElement("div"); grid.className="dois";
   [["sim","Sim, recolher"],["nao","Não recolher"]].forEach(function(par){
     var b=document.createElement("button");
-    var ativo = (par[0]==="sim" && lev.querDocumentos) || (par[0]==="nao" && !lev.querDocumentos && lev.querDocumentos!==undefined);
+    var ativo=(par[0]==="sim" && lev.querDocumentos) || (par[0]==="nao" && !lev.querDocumentos);
     b.className="opc-btn"+(ativo?" sel":"");
     b.textContent=par[1];
-    b.onclick=function(){
-      lev.querDocumentos=(par[0]==="sim");
-      renderPasso();
-    };
+    b.onclick=function(){ lev.querDocumentos=(par[0]==="sim"); renderPasso(); };
     grid.appendChild(b);
   });
   box.appendChild(grid);
 
   if(lev.querDocumentos){
-    box.appendChild(rotuloDoc("Identidade"));
-    box.appendChild(blocoFotos("doc_identidade",1));
-    box.appendChild(rotuloDoc("Fatura de energia"));
-    box.appendChild(blocoFotos("doc_fatura",1));
-    box.appendChild(rotuloDoc("CPF (se for o caso)"));
-    box.appendChild(blocoFotos("doc_cpf",1));
+    box.appendChild(rotuloSecao("Identidade ou CNH — Frente"));
+    box.appendChild(blocoFotos("identidade_frente", 1));
+    box.appendChild(rotuloSecao("Identidade ou CNH — Verso"));
+    box.appendChild(blocoFotos("identidade_verso", 1));
+    box.appendChild(rotuloSecao("Fatura de energia"));
+    box.appendChild(blocoFotos("fatura_energia", 1));
+    box.appendChild(rotuloSecao("CPF (se for o caso)"));
+    box.appendChild(blocoFotos("cpf", 1));
+    box.appendChild(rotuloSecao("Outro documento 1"));
+    box.appendChild(blocoFotos("outro_documento_1", 1));
+    box.appendChild(rotuloSecao("Outro documento 2"));
+    box.appendChild(blocoFotos("outro_documento_2", 1));
   }
   return box;
 }
-function rotuloDoc(t){ var d=document.createElement("div"); d.className="secao-titulo"; d.textContent=t; return d; }
+function blocoVideo(){
+  var box=document.createElement("div");
+  var ajuda=document.createElement("div"); ajuda.className="ajuda";
+  ajuda.textContent="Se precisar, grave um vídeo de até 20 s. Vídeos grandes podem demorar para enviar.";
+  box.appendChild(ajuda);
+
+  var input=document.createElement("input");
+  input.type="file"; input.accept="video/*"; input.capture="environment"; input.style.display="none";
+  input.onchange=function(){
+    if(!input.files||!input.files[0]) return;
+    var f=input.files[0];
+    // remove vídeo anterior (só 1)
+    lev.fotos = lev.fotos.filter(function(x){ return x.categoria!=="video"; });
+    lev.fotos.push({ categoria:"video", blob:f, mime:f.type||"video/mp4" });
+    input.value=""; galeriaRender();
+  };
+  var btn=document.createElement("button");
+  btn.className="btn btn-azul"; btn.textContent="🎥 Gravar vídeo (opcional)";
+  btn.onclick=function(){ input.click(); };
+  box.appendChild(btn); box.appendChild(input);
+
+  var galeria=document.createElement("div"); galeria.className="fotos"; box.appendChild(galeria);
+  function galeriaRender(){
+    galeria.innerHTML="";
+    lev.fotos.forEach(function(f,idx){
+      if(f.categoria!=="video") return;
+      var card=document.createElement("div"); card.className="foto-card";
+      var v=document.createElement("video"); v.src=URL.createObjectURL(f.blob); v.muted=true; v.controls=true;
+      var rem=document.createElement("button"); rem.className="foto-remover"; rem.textContent="Remover vídeo";
+      rem.onclick=function(){ lev.fotos.splice(idx,1); galeriaRender(); };
+      card.appendChild(v); card.appendChild(rem); galeria.appendChild(card);
+    });
+  }
+  galeriaRender(); return box;
+}
+function rotuloSecao(t){ var d=document.createElement("div"); d.className="secao-titulo"; d.textContent=t; return d; }
 
 function blocoRevisao(){
   var box=document.createElement("div");
-
-  // Observações
   box.appendChild(inputTexto("Observações (se for o caso)", "observacoes"));
 
-  // Aviso de dados não recolhidos
   var faltando=[];
   if(!lev.colaborador) faltando.push("Colaborador");
   if(!lev.padraoLat)   faltando.push("Coordenada do padrão");
-  if(!contaFotos("padrao")) faltando.push("Foto do padrão");
+  if(!contaFotos("padrao_de_entrada")) faltando.push("Foto do padrão");
   if(!lev.disjuntor)   faltando.push("Disjuntor");
   if(!lev.bitolaCabo)  faltando.push("Bitola do cabo");
   if(!lev.trafoLat)    faltando.push("Coordenada do transformador");
+  if(!contaFotos("transformador")) faltando.push("Foto do transformador");
+  if(!lev.potenciaTrafo) faltando.push("Potência do transformador");
   if(!contaFotos("outras")) faltando.push("Outras fotos");
-  if(!contaFotos("doc_identidade")) faltando.push("Documento: Identidade");
-  if(!contaFotos("doc_fatura"))     faltando.push("Documento: Fatura de energia");
-  if(!contaFotos("doc_cpf"))        faltando.push("Documento: CPF");
 
   if(faltando.length){
     var av=document.createElement("div"); av.className="aviso";
@@ -545,9 +622,11 @@ function blocoRevisao(){
   box.appendChild(item("Tipo de ramal", lev.tipoRamal));
   box.appendChild(item("Coord. padrão", lev.padraoLat?Number(lev.padraoLat).toFixed(6)+", "+Number(lev.padraoLng).toFixed(6):""));
   box.appendChild(item("Coord. transformador", lev.trafoLat?Number(lev.trafoLat).toFixed(6)+", "+Number(lev.trafoLng).toFixed(6):""));
+  box.appendChild(item("Nº transformador", lev.numeroTrafo));
+  box.appendChild(item("Potência (kVA)", lev.potenciaTrafo));
   box.appendChild(item("Disjuntor", lev.disjuntor?lev.disjuntor+" A":""));
   box.appendChild(item("Bitola do cabo", lev.bitolaCabo?lev.bitolaCabo+" mm²":""));
-  box.appendChild(item("Fotos", lev.fotos.length+" foto(s)"));
+  box.appendChild(item("Fotos/vídeo", lev.fotos.length+" arquivo(s)"));
   return box;
 }
 
@@ -575,15 +654,12 @@ function enviarFila(pend,i){
   if(i>=pend.length){ toast("Envio concluído ✓"); atualizarListas(); return; }
   var l=pend[i];
   prepararEnvio(l).then(function(p){
-    // POST grava no servidor (as fotos são grandes, precisa ser POST).
-    // Não dependemos de LER a resposta do POST (CORS pode bloquear a leitura).
     return fetch(URL_WEBAPP, {
       method:"POST",
       headers:{ "Content-Type":"text/plain;charset=utf-8" },
       body: JSON.stringify(p)
     }).catch(function(){ return null; });
   }).then(function(){
-    // Confirma por GET se o levantamento foi gravado.
     return apiGet({ acao:"existe", id:l.id });
   }).then(function(r){
     if(r && r.ok && r.existe){
@@ -599,12 +675,13 @@ function prepararEnvio(l){
   var fotos=[]; var p=Promise.resolve();
   (l.fotos||[]).forEach(function(f){
     p=p.then(function(){ return blobParaBase64(f.blob).then(function(b64){
-      fotos.push({ categoria:f.categoria, mime:"image/jpeg", base64:b64 }); }); });
+      fotos.push({ categoria:f.categoria, mime:f.mime||"image/jpeg", base64:b64 }); }); });
   });
   return p.then(function(){
     return { acao:"enviar", id:l.id, dataHora:l.dataHora, colaborador:l.colaborador, cliente:l.cliente,
       tipoRamal:l.tipoRamal, disjuntor:l.disjuntor, bitolaCabo:l.bitolaCabo,
       padraoLat:l.padraoLat, padraoLng:l.padraoLng, trafoLat:l.trafoLat, trafoLng:l.trafoLng,
+      numeroTrafo:l.numeroTrafo, potenciaTrafo:l.potenciaTrafo,
       observacoes:l.observacoes, fotos:fotos };
   });
 }
@@ -613,7 +690,6 @@ function prepararEnvio(l){
    LISTAS NA HOME
    ========================================================= */
 function atualizarListas(){
-  // locais (pendentes/enviados)
   lerTodosDB().then(function(lista){
     var pend=lista.filter(function(l){ return !l.sincronizado; });
     var box=document.getElementById("pendentes-box");
@@ -625,16 +701,14 @@ function atualizarListas(){
     if(lista.length){
       sec.appendChild(tituloSecao("Neste aparelho"));
       lista.slice().reverse().forEach(function(l){
-        var row=linhaLev(l.cliente||"Sem cliente", l.dataHora,
-          l.sincronizado?"Enviado":"Pendente", l.sincronizado?"ok":"pend");
-        sec.appendChild(row);
+        sec.appendChild(linhaLev(l.cliente||"Sem cliente", l.dataHora,
+          l.sincronizado?"Enviado":"Pendente", l.sincronizado?"ok":"pend"));
       });
     }
   });
-  // abertos do gestor (online)
   var secA=document.getElementById("sec-abertos"); secA.innerHTML="";
   if(navigator.onLine && URL_WEBAPP.indexOf("COLE_AQUI")<0){
-    apiPost({ acao:"listarAbertos" }).then(function(r){
+    apiGet({ acao:"listarAbertos" }).then(function(r){
       if(r&&r.ok&&r.lista&&r.lista.length){
         secA.appendChild(tituloSecao("Abertos pelo gestor — toque para preencher"));
         r.lista.forEach(function(a){
@@ -666,13 +740,12 @@ function carregarConfig(){
   var cache=localStorage.getItem("cfg");
   if(cache){ try{ CFG=JSON.parse(cache); }catch(e){} }
   if(navigator.onLine && URL_WEBAPP.indexOf("COLE_AQUI")<0){
-    apiPost({ acao:"getConfig" }).then(function(r){
+    apiGet({ acao:"getConfig" }).then(function(r){
       if(r&&r.ok){
         CFG={ bitolas:r.bitolas||CFG_PADRAO.bitolas,
               disjuntores:r.disjuntores||CFG_PADRAO.disjuntores,
               colaboradores:r.colaboradores||[] };
         localStorage.setItem("cfg", JSON.stringify(CFG));
-        // Se o wizard já estiver aberto, re-renderiza para a lista aparecer.
         if(!document.getElementById("tela-wizard").classList.contains("hidden")) renderPasso();
       }
     }).catch(function(){});
@@ -704,7 +777,6 @@ document.getElementById("btn-proximo").onclick=function(){
   if(passo===ETAPAS.length-1) salvarLevantamento(); else irPasso(passo+1);
 };
 
-// gestor cria vazio
 document.getElementById("btn-gestor").onclick=function(){
   document.getElementById("mini-gestor").classList.toggle("hidden");
 };
@@ -716,7 +788,7 @@ document.getElementById("g-salvar").onclick=function(){
   var cliente=document.getElementById("g-cliente").value;
   var obs=document.getElementById("g-obs").value;
   if(!cliente){ toast("Informe o cliente/referência."); return; }
-  apiPost({ acao:"criarAberto", cliente:cliente, observacoes:obs }).then(function(r){
+  apiGet({ acao:"criarAberto", cliente:cliente, observacoes:obs }).then(function(r){
     if(r&&r.ok){
       toast("Levantamento aberto criado ✓");
       document.getElementById("g-cliente").value=""; document.getElementById("g-obs").value="";
