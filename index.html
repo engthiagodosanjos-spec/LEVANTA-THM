@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1E50A0">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>Levantamento técnico — ThM</title>
+<style>
+  :root{
+    --azul:#1E50A0; --azul-esc:#17408B; --amarelo:#F5B700;
+    --cinza-bg:#EEF2F7; --branco:#fff; --texto:#15233B; --sec:#5A6B82;
+    --borda:#D7DEE8; --verde:#1E9E5A; --vermelho:#C0392B; --vermelho-bg:#FCECEA;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--cinza-bg); color:var(--texto); font-size:17px; line-height:1.4;}
+  .topo{background:var(--azul); color:#fff; padding:16px 18px; display:flex;
+    align-items:center; justify-content:space-between; gap:10px;}
+  .topo-esq{display:flex; align-items:center; gap:12px}
+  .sol{font-size:30px}
+  .topo h1{font-size:20px; margin:0; font-weight:700}
+  .topo p{margin:0; font-size:14px; opacity:.9}
+  .pill{border:1px solid rgba(255,255,255,.6); border-radius:30px; padding:7px 14px;
+    font-size:14px; display:flex; align-items:center; gap:7px; white-space:nowrap}
+  .dot{width:10px; height:10px; border-radius:50%; background:#8ad1a0}
+  .dot.off{background:#f0a0a0}
+  .wrap{padding:18px; max-width:620px; margin:0 auto}
+  .barra-topo{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px}
+  .voltar-link{color:var(--azul); font-weight:700; background:none; border:none;
+    font-size:17px; padding:0; cursor:pointer}
+  .etapa-num{color:var(--sec); font-size:16px}
+  .progresso{height:8px; background:#DCE3EC; border-radius:6px; overflow:hidden; margin-bottom:22px}
+  .progresso-fill{height:100%; background:var(--amarelo); border-radius:6px; transition:width .25s}
+  h2.titulo{font-size:28px; margin:0 0 8px; font-weight:800}
+  p.sub{color:var(--sec); font-size:18px; margin:0 0 22px}
+  .campo{display:block; width:100%; padding:16px; font-size:18px; border:1px solid var(--borda);
+    border-radius:14px; background:#fff; margin-bottom:14px; -webkit-appearance:none; appearance:none}
+  select.campo{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><path d='M4 6l4 4 4-4' fill='none' stroke='%235A6B82' stroke-width='2'/></svg>");
+    background-repeat:no-repeat; background-position:right 16px center}
+  .preview-box{background:#fff; border:1px solid var(--borda); border-radius:16px; min-height:140px;
+    display:flex; align-items:center; justify-content:center; margin-bottom:16px; overflow:hidden}
+  .preview-box .raio{font-size:60px}
+  .btn{display:flex; align-items:center; justify-content:center; gap:10px; width:100%;
+    padding:20px; font-size:19px; font-weight:700; border-radius:16px; border:none;
+    cursor:pointer; margin-bottom:14px}
+  .btn-azul{background:var(--azul); color:#fff}
+  .btn-azul:active{background:var(--azul-esc)}
+  .btn-branco{background:#fff; color:var(--azul); border:1px solid var(--borda)}
+  .ajuda{color:var(--sec); font-size:15px; margin:4px 0 12px}
+  .rotulo{font-weight:700; font-size:16px; margin:6px 0 8px}
+  .fotos{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px}
+  .foto-card{background:#fff; border:1px solid var(--borda); border-radius:16px; padding:10px}
+  .foto-card img{width:100%; height:120px; object-fit:cover; border-radius:10px; display:block}
+  .foto-remover{width:100%; margin-top:8px; padding:12px; border:none; border-radius:12px;
+    background:var(--vermelho-bg); color:var(--vermelho); font-weight:700; font-size:15px; cursor:pointer}
+  .acoes{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:8px}
+  .acoes .btn{margin-bottom:0}
+  .rodape{color:var(--sec); font-size:15px; margin-top:16px; display:flex; align-items:center; gap:8px}
+  .dois{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px}
+  .opc-btn{padding:20px; font-size:19px; font-weight:800; border-radius:16px;
+    border:2px solid var(--borda); background:#fff; color:var(--texto); cursor:pointer}
+  .opc-btn.sel{border-color:var(--azul); background:#E8F0FB; color:var(--azul)}
+  .coord-ok{background:#E9F7EF; border:1px solid #BFE6CF; color:#1E6B40; border-radius:14px;
+    padding:14px 16px; font-size:16px; margin-bottom:14px}
+  .revisao-item{background:#fff; border:1px solid var(--borda); border-radius:14px;
+    padding:14px 16px; margin-bottom:10px; font-size:16px}
+  .revisao-item b{display:block; color:var(--sec); font-size:13px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.3px; margin-bottom:3px}
+  .aviso{background:#FFF7E0; border:1px solid #F3D98A; border-radius:14px; padding:14px 16px;
+    margin-bottom:14px; font-size:16px; color:#7A5600}
+  .aviso ul{margin:8px 0 0 18px; padding:0}
+  .pendentes{background:#FFF7E0; border:1px solid #F3D98A; border-radius:14px; padding:14px 16px;
+    margin:0 0 14px; font-size:16px; display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .pendentes button{background:var(--azul); color:#fff; border:none; border-radius:12px;
+    padding:12px 16px; font-weight:700; font-size:15px; cursor:pointer}
+  .secao-titulo{font-size:15px; font-weight:700; color:var(--sec); text-transform:uppercase;
+    letter-spacing:.3px; margin:18px 0 8px}
+  .lista-lev{background:#fff; border:1px solid var(--borda); border-radius:14px; padding:14px 16px;
+    margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:10px; cursor:pointer}
+  .tag{font-size:13px; font-weight:700; padding:4px 10px; border-radius:20px; white-space:nowrap}
+  .tag.pend{background:#FFF1D6; color:#8A5A00}
+  .tag.ok{background:#E6F6EC; color:#1E6B40}
+  .tag.aberto{background:#E8F0FB; color:#17408B}
+  .mini-form{background:#fff; border:1px solid var(--borda); border-radius:16px; padding:16px; margin-bottom:14px}
+  .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#15233B;
+    color:#fff; padding:14px 20px; border-radius:30px; font-size:16px; z-index:50; opacity:0;
+    transition:opacity .2s; pointer-events:none; max-width:90%}
+  .toast.show{opacity:1}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+
+<div class="topo">
+  <div class="topo-esq">
+    <div class="sol">☀️</div>
+    <div>
+      <h1>ThM Energia Solar</h1>
+      <p>Levantamento técnico</p>
+    </div>
+  </div>
+  <div class="pill"><span id="conn-dot" class="dot"></span><span id="conn-txt">Com internet</span></div>
+</div>
+
+<div class="wrap">
+
+  <!-- HOME -->
+  <div id="tela-home">
+    <div id="pendentes-box" class="pendentes hidden">
+      <span id="pendentes-txt">0 para enviar</span>
+      <button id="btn-sync">Sincronizar</button>
+    </div>
+
+    <button class="btn btn-azul" id="btn-novo">➕ Novo levantamento</button>
+    <button class="btn btn-branco" id="btn-gestor">📋 Criar p/ o campo (gestor)</button>
+
+    <div id="mini-gestor" class="mini-form hidden">
+      <div class="rotulo">Novo levantamento aberto</div>
+      <input class="campo" id="g-cliente" placeholder="Cliente / referência">
+      <input class="campo" id="g-obs" placeholder="Observações (opcional)">
+      <div class="acoes">
+        <button class="btn btn-branco" id="g-cancelar">Cancelar</button>
+        <button class="btn btn-azul" id="g-salvar">Criar</button>
+      </div>
+    </div>
+
+    <div id="sec-abertos"></div>
+    <div id="sec-locais"></div>
+
+    <div class="rodape">✓ Os dados são salvos neste aparelho</div>
+  </div>
+
+  <!-- WIZARD -->
+  <div id="tela-wizard" class="hidden">
+    <div class="barra-topo">
+      <button class="voltar-link" id="btn-lista">← Levantamentos</button>
+      <span class="etapa-num">Etapa <span id="et-atual">1</span> de <span id="et-total">9</span></span>
+    </div>
+    <div class="progresso"><div class="progresso-fill" id="progresso"></div></div>
+
+    <h2 class="titulo" id="passo-titulo"></h2>
+    <p class="sub" id="passo-sub"></p>
+
+    <div id="passo-conteudo"></div>
+
+    <div class="acoes">
+      <button class="btn btn-branco" id="btn-voltar">Voltar</button>
+      <button class="btn btn-azul" id="btn-proximo">Próximo →</button>
+    </div>
+    <div class="rodape">✓ Os dados são salvos neste aparelho</div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   CONFIGURAÇÃO — preencha depois de publicar o Web App (GAS)
+   ========================================================= */
+var URL_WEBAPP = "COLE_AQUI_A_URL_DO_WEB_APP"; // termina em /exec
+
+var CFG_PADRAO = {
+  bitolas:       ["6","10","16","25","35","50"],
+  disjuntores:   ["25","32","40","50","63","70","80","100"],
+  colaboradores: []
+};
+
+/* =========================================================
+   ETAPAS
+   ========================================================= */
+var ETAPAS = [
+  { chave:"ident",    titulo:"Identificação",            sub:"Selecione o colaborador e o cliente." },
+  { chave:"gpsPad",   titulo:"Coordenada do padrão",     sub:"Fique perto do padrão e capture a localização." },
+  { chave:"fotoPad",  titulo:"Padrão de entrada",        sub:"Fotografe o padrão e informe o tipo de ramal." },
+  { chave:"disj",     titulo:"Disjuntor",                sub:"Selecione o disjuntor e tire uma foto (opcional)." },
+  { chave:"bitola",   titulo:"Bitola do cabo",           sub:"Selecione a bitola do cabo do padrão." },
+  { chave:"gpsTrafo", titulo:"Coord. do transformador",  sub:"Fique perto do transformador e capture a localização." },
+  { chave:"outras",   titulo:"Outras fotos",             sub:"Fotos adicionais que ajudem no projeto (até 3)." },
+  { chave:"docs",     titulo:"Documentos",               sub:"Deseja recolher documentos do cliente?" },
+  { chave:"revisao",  titulo:"Revisão",                  sub:"Observações, conferência e salvar." }
+];
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+var passo = 0;
+var CFG = JSON.parse(JSON.stringify(CFG_PADRAO));
+var lev = null;
+
+function novoLevantamento(){
+  return {
+    id: "LEV-" + formataId(new Date()),
+    dataHora: new Date().toLocaleString("pt-BR"),
+    colaborador:"", cliente:"",
+    tipoRamal:"", disjuntor:"", bitolaCabo:"",
+    padraoLat:"", padraoLng:"", trafoLat:"", trafoLng:"",
+    querDocumentos:false, observacoes:"",
+    fotos:[] // { categoria, blob }
+  };
+}
+function formataId(d){
+  function p(n){ return (n<10?"0":"")+n; }
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+}
+
+/* =========================================================
+   INDEXEDDB
+   ========================================================= */
+var DB=null;
+function abrirDB(){
+  return new Promise(function(res,rej){
+    var req = indexedDB.open("levantamentosThM", 1);
+    req.onupgradeneeded = function(ev){
+      var db = ev.target.result;
+      if(!db.objectStoreNames.contains("levantamentos"))
+        db.createObjectStore("levantamentos", { keyPath:"id" });
+    };
+    req.onsuccess = function(ev){ DB = ev.target.result; res(DB); };
+    req.onerror = function(){ rej(req.error); };
+  });
+}
+function salvarDB(obj){
+  return new Promise(function(res,rej){
+    var tx = DB.transaction("levantamentos","readwrite");
+    tx.objectStore("levantamentos").put(obj);
+    tx.oncomplete = function(){ res(); };
+    tx.onerror = function(){ rej(tx.error); };
+  });
+}
+function lerTodosDB(){
+  return new Promise(function(res,rej){
+    var tx = DB.transaction("levantamentos","readonly");
+    var r = tx.objectStore("levantamentos").getAll();
+    r.onsuccess = function(){ res(r.result||[]); };
+    r.onerror = function(){ rej(r.error); };
+  });
+}
+
+/* =========================================================
+   API (POST text/plain para evitar preflight de CORS)
+   ========================================================= */
+function apiPost(payload){
+  return fetch(URL_WEBAPP, {
+    method:"POST",
+    headers:{ "Content-Type":"text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); });
+}
+
+/* =========================================================
+   FOTOS
+   ========================================================= */
+function comprimirFoto(file){
+  return new Promise(function(res){
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function(){
+      var max = 1600, w = img.width, h = img.height;
+      if(w>h && w>max){ h = Math.round(h*max/w); w = max; }
+      else if(h>=w && h>max){ w = Math.round(w*max/h); h = max; }
+      var cv = document.createElement("canvas");
+      cv.width=w; cv.height=h;
+      cv.getContext("2d").drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      cv.toBlob(function(b){ res(b||file); }, "image/jpeg", 0.7);
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); res(file); };
+    img.src = url;
+  });
+}
+function blobParaBase64(blob){
+  return new Promise(function(res){
+    var r = new FileReader();
+    r.onloadend = function(){ res(String(r.result).split(",")[1]); };
+    r.readAsDataURL(blob);
+  });
+}
+function contaFotos(cat){
+  return lev.fotos.filter(function(f){ return f.categoria===cat; }).length;
+}
+
+/* =========================================================
+   NAVEGAÇÃO
+   ========================================================= */
+function mostrarHome(){
+  document.getElementById("tela-wizard").classList.add("hidden");
+  document.getElementById("tela-home").classList.remove("hidden");
+  atualizarListas();
+}
+function abrirWizard(prefill){
+  lev = prefill || novoLevantamento();
+  if(!lev.fotos) lev.fotos = [];
+  passo = 0;
+  document.getElementById("tela-home").classList.add("hidden");
+  document.getElementById("tela-wizard").classList.remove("hidden");
+  document.getElementById("et-total").textContent = ETAPAS.length;
+  renderPasso();
+}
+function irPasso(n){
+  if(n<0 || n>=ETAPAS.length) return;
+  // regra: ramal obrigatório para sair da etapa de foto do padrão
+  if(ETAPAS[passo].chave==="fotoPad" && n>passo && !lev.tipoRamal){
+    toast("Selecione o tipo de ramal (aéreo ou subterrâneo)."); return;
+  }
+  passo = n; renderPasso(); window.scrollTo(0,0);
+}
+
+function renderPasso(){
+  var et = ETAPAS[passo];
+  document.getElementById("et-atual").textContent = passo+1;
+  document.getElementById("progresso").style.width = ((passo+1)/ETAPAS.length*100)+"%";
+  document.getElementById("passo-titulo").textContent = et.titulo;
+  document.getElementById("passo-sub").textContent = et.sub;
+  document.getElementById("btn-proximo").textContent = (passo===ETAPAS.length-1) ? "✓ Salvar" : "Próximo →";
+  var c = document.getElementById("passo-conteudo"); c.innerHTML = "";
+
+  if(et.chave==="ident"){
+    c.appendChild(blocoSelect("Colaborador", "colaborador", CFG.colaboradores, "Selecione o colaborador"));
+    c.appendChild(inputTexto("Cliente / referência", "cliente"));
+  }
+  else if(et.chave==="gpsPad"){ c.appendChild(blocoGPS("padrao")); }
+  else if(et.chave==="gpsTrafo"){ c.appendChild(blocoGPS("trafo")); }
+  else if(et.chave==="fotoPad"){
+    c.appendChild(blocoFotos("padrao", 2));
+    c.appendChild(blocoRamal());
+  }
+  else if(et.chave==="disj"){
+    c.appendChild(blocoSelect("Disjuntor (A)", "disjuntor", CFG.disjuntores, "Selecione o disjuntor"));
+    c.appendChild(blocoFotos("disjuntor", 1));
+  }
+  else if(et.chave==="bitola"){
+    c.appendChild(blocoSelect("Bitola do cabo (mm²)", "bitolaCabo", CFG.bitolas, "Selecione a bitola"));
+  }
+  else if(et.chave==="outras"){ c.appendChild(blocoFotos("outras", 3)); }
+  else if(et.chave==="docs"){ c.appendChild(blocoDocumentos()); }
+  else if(et.chave==="revisao"){ c.appendChild(blocoRevisao()); }
+}
+
+/* ---------- componentes ---------- */
+function inputTexto(label, campo, tipo){
+  var box=document.createElement("div");
+  var l=document.createElement("div"); l.className="rotulo"; l.textContent=label;
+  var i=document.createElement("input"); i.className="campo"; i.type=tipo||"text";
+  if(tipo==="number") i.inputMode="numeric";
+  i.value=lev[campo]||"";
+  i.oninput=function(){ lev[campo]=i.value; };
+  box.appendChild(l); box.appendChild(i); return box;
+}
+function blocoSelect(label, campo, lista, placeholder){
+  var box=document.createElement("div");
+  var l=document.createElement("div"); l.className="rotulo"; l.textContent=label;
+  var s=document.createElement("select"); s.className="campo";
+  var op0=document.createElement("option"); op0.value=""; op0.textContent=placeholder||"Selecione";
+  s.appendChild(op0);
+  (lista||[]).forEach(function(v){
+    var o=document.createElement("option"); o.value=v; o.textContent=v;
+    if(lev[campo]===v) o.selected=true;
+    s.appendChild(o);
+  });
+  s.onchange=function(){ lev[campo]=s.value; };
+  box.appendChild(l); box.appendChild(s);
+  if((!lista || !lista.length) && (campo==="colaborador")){
+    var av=document.createElement("div"); av.className="ajuda";
+    av.textContent="Lista de colaboradores ainda não carregada. Abra o app com internet uma vez para baixá-la.";
+    box.appendChild(av);
+  }
+  return box;
+}
+function blocoRamal(){
+  var box=document.createElement("div");
+  var l=document.createElement("div"); l.className="rotulo"; l.textContent="Tipo de ramal (obrigatório)";
+  var grid=document.createElement("div"); grid.className="dois";
+  [["Aéreo","Ramal aéreo"],["Subterrâneo","Ramal subterrâneo"]].forEach(function(par){
+    var b=document.createElement("button");
+    b.className="opc-btn"+(lev.tipoRamal===par[0]?" sel":"");
+    b.textContent=par[1];
+    b.onclick=function(){
+      lev.tipoRamal=par[0];
+      Array.prototype.forEach.call(grid.children,function(x){ x.classList.remove("sel"); });
+      b.classList.add("sel");
+    };
+    grid.appendChild(b);
+  });
+  box.appendChild(l); box.appendChild(grid); return box;
+}
+function blocoGPS(alvo){
+  var box=document.createElement("div");
+  var status=document.createElement("div");
+  function pinta(){
+    if(lev[alvo+"Lat"]){
+      status.className="coord-ok";
+      status.textContent="📍 "+Number(lev[alvo+"Lat"]).toFixed(6)+", "+Number(lev[alvo+"Lng"]).toFixed(6);
+    } else { status.className="ajuda"; status.textContent="Nenhuma coordenada capturada ainda."; }
+  }
+  pinta();
+  var btn=document.createElement("button");
+  btn.className="btn btn-azul"; btn.textContent="📍 Capturar coordenada";
+  btn.onclick=function(){
+    if(!navigator.geolocation){ toast("GPS não disponível."); return; }
+    btn.textContent="Capturando..."; btn.disabled=true;
+    navigator.geolocation.getCurrentPosition(function(p){
+      lev[alvo+"Lat"]=p.coords.latitude; lev[alvo+"Lng"]=p.coords.longitude;
+      btn.textContent="📍 Capturar novamente"; btn.disabled=false; pinta();
+    },function(){
+      toast("Não consegui o GPS. Ative a localização.");
+      btn.textContent="📍 Capturar coordenada"; btn.disabled=false;
+    },{ enableHighAccuracy:true, timeout:15000 });
+  };
+  box.appendChild(status); box.appendChild(btn); return box;
+}
+function blocoFotos(categoria, maxFotos){
+  var box=document.createElement("div");
+  var prev=document.createElement("div"); prev.className="preview-box";
+  prev.innerHTML='<span class="raio">⚡</span>'; box.appendChild(prev);
+
+  var input=document.createElement("input");
+  input.type="file"; input.accept="image/*"; input.capture="environment"; input.style.display="none";
+  input.onchange=function(){
+    if(!input.files||!input.files[0]) return;
+    if(contaFotos(categoria)>=maxFotos){ toast("Máximo de "+maxFotos+" foto(s)."); input.value=""; return; }
+    comprimirFoto(input.files[0]).then(function(blob){
+      lev.fotos.push({ categoria:categoria, blob:blob }); input.value=""; galeriaRender();
+    });
+  };
+  var btn=document.createElement("button");
+  btn.className="btn btn-azul"; btn.textContent="📷 Tirar fotografia";
+  btn.onclick=function(){ input.click(); };
+  box.appendChild(btn); box.appendChild(input);
+
+  var ajuda=document.createElement("div"); ajuda.className="ajuda";
+  ajuda.textContent="Até "+maxFotos+" foto(s) nesta categoria.";
+  box.appendChild(ajuda);
+
+  var galeria=document.createElement("div"); galeria.className="fotos"; box.appendChild(galeria);
+  function galeriaRender(){
+    galeria.innerHTML="";
+    lev.fotos.forEach(function(f,idx){
+      if(f.categoria!==categoria) return;
+      var card=document.createElement("div"); card.className="foto-card";
+      var img=document.createElement("img"); img.src=URL.createObjectURL(f.blob);
+      var rem=document.createElement("button"); rem.className="foto-remover"; rem.textContent="Remover foto";
+      rem.onclick=function(){ lev.fotos.splice(idx,1); galeriaRender(); };
+      card.appendChild(img); card.appendChild(rem); galeria.appendChild(card);
+    });
+  }
+  galeriaRender(); return box;
+}
+function blocoDocumentos(){
+  var box=document.createElement("div");
+  var grid=document.createElement("div"); grid.className="dois";
+  [["sim","Sim, recolher"],["nao","Não recolher"]].forEach(function(par){
+    var b=document.createElement("button");
+    var ativo = (par[0]==="sim" && lev.querDocumentos) || (par[0]==="nao" && !lev.querDocumentos && lev.querDocumentos!==undefined);
+    b.className="opc-btn"+(ativo?" sel":"");
+    b.textContent=par[1];
+    b.onclick=function(){
+      lev.querDocumentos=(par[0]==="sim");
+      renderPasso();
+    };
+    grid.appendChild(b);
+  });
+  box.appendChild(grid);
+
+  if(lev.querDocumentos){
+    box.appendChild(rotuloDoc("Identidade"));
+    box.appendChild(blocoFotos("doc_identidade",1));
+    box.appendChild(rotuloDoc("Fatura de energia"));
+    box.appendChild(blocoFotos("doc_fatura",1));
+    box.appendChild(rotuloDoc("CPF (se for o caso)"));
+    box.appendChild(blocoFotos("doc_cpf",1));
+  }
+  return box;
+}
+function rotuloDoc(t){ var d=document.createElement("div"); d.className="secao-titulo"; d.textContent=t; return d; }
+
+function blocoRevisao(){
+  var box=document.createElement("div");
+
+  // Observações
+  box.appendChild(inputTexto("Observações (se for o caso)", "observacoes"));
+
+  // Aviso de dados não recolhidos
+  var faltando=[];
+  if(!lev.colaborador) faltando.push("Colaborador");
+  if(!lev.padraoLat)   faltando.push("Coordenada do padrão");
+  if(!contaFotos("padrao")) faltando.push("Foto do padrão");
+  if(!lev.disjuntor)   faltando.push("Disjuntor");
+  if(!lev.bitolaCabo)  faltando.push("Bitola do cabo");
+  if(!lev.trafoLat)    faltando.push("Coordenada do transformador");
+  if(!contaFotos("outras")) faltando.push("Outras fotos");
+  if(!contaFotos("doc_identidade")) faltando.push("Documento: Identidade");
+  if(!contaFotos("doc_fatura"))     faltando.push("Documento: Fatura de energia");
+  if(!contaFotos("doc_cpf"))        faltando.push("Documento: CPF");
+
+  if(faltando.length){
+    var av=document.createElement("div"); av.className="aviso";
+    var html="<b>⚠️ Dados NÃO recolhidos:</b><ul>";
+    faltando.forEach(function(f){ html+="<li>"+f+"</li>"; });
+    html+="</ul>";
+    av.innerHTML=html; box.appendChild(av);
+  }
+
+  function item(r,v){ var d=document.createElement("div"); d.className="revisao-item";
+    d.innerHTML="<b>"+r+"</b>"+(v&&String(v).trim()?v:"—"); return d; }
+  box.appendChild(item("Colaborador", lev.colaborador));
+  box.appendChild(item("Cliente", lev.cliente));
+  box.appendChild(item("Tipo de ramal", lev.tipoRamal));
+  box.appendChild(item("Coord. padrão", lev.padraoLat?Number(lev.padraoLat).toFixed(6)+", "+Number(lev.padraoLng).toFixed(6):""));
+  box.appendChild(item("Coord. transformador", lev.trafoLat?Number(lev.trafoLat).toFixed(6)+", "+Number(lev.trafoLng).toFixed(6):""));
+  box.appendChild(item("Disjuntor", lev.disjuntor?lev.disjuntor+" A":""));
+  box.appendChild(item("Bitola do cabo", lev.bitolaCabo?lev.bitolaCabo+" mm²":""));
+  box.appendChild(item("Fotos", lev.fotos.length+" foto(s)"));
+  return box;
+}
+
+/* =========================================================
+   SALVAR + SINCRONIZAR
+   ========================================================= */
+function salvarLevantamento(){
+  if(!lev.tipoRamal){ toast("Selecione o tipo de ramal antes de salvar."); irPasso(2); return; }
+  lev.sincronizado=false;
+  salvarDB(lev).then(function(){
+    toast("Salvo neste aparelho ✓"); mostrarHome();
+    if(navigator.onLine) sincronizar();
+  });
+}
+function sincronizar(){
+  if(URL_WEBAPP.indexOf("COLE_AQUI")>=0){ toast("Configure a URL do Web App."); return; }
+  if(!navigator.onLine){ toast("Sem internet agora."); return; }
+  lerTodosDB().then(function(lista){
+    var pend=lista.filter(function(l){ return !l.sincronizado; });
+    if(!pend.length){ toast("Nada para enviar."); return; }
+    toast("Enviando "+pend.length+"..."); enviarFila(pend,0);
+  });
+}
+function enviarFila(pend,i){
+  if(i>=pend.length){ toast("Envio concluído ✓"); atualizarListas(); return; }
+  var l=pend[i];
+  prepararEnvio(l).then(function(p){ return apiPost(p); })
+    .then(function(resp){
+      if(resp&&resp.ok){ l.sincronizado=true; return salvarDB(l).then(function(){ enviarFila(pend,i+1); }); }
+      else { toast("Erro: "+(resp&&resp.erro?resp.erro:"desconhecido")); }
+    }).catch(function(){ toast("Falha de conexão no envio."); });
+}
+function prepararEnvio(l){
+  var fotos=[]; var p=Promise.resolve();
+  (l.fotos||[]).forEach(function(f){
+    p=p.then(function(){ return blobParaBase64(f.blob).then(function(b64){
+      fotos.push({ categoria:f.categoria, mime:"image/jpeg", base64:b64 }); }); });
+  });
+  return p.then(function(){
+    return { acao:"enviar", id:l.id, dataHora:l.dataHora, colaborador:l.colaborador, cliente:l.cliente,
+      tipoRamal:l.tipoRamal, disjuntor:l.disjuntor, bitolaCabo:l.bitolaCabo,
+      padraoLat:l.padraoLat, padraoLng:l.padraoLng, trafoLat:l.trafoLat, trafoLng:l.trafoLng,
+      observacoes:l.observacoes, fotos:fotos };
+  });
+}
+
+/* =========================================================
+   LISTAS NA HOME
+   ========================================================= */
+function atualizarListas(){
+  // locais (pendentes/enviados)
+  lerTodosDB().then(function(lista){
+    var pend=lista.filter(function(l){ return !l.sincronizado; });
+    var box=document.getElementById("pendentes-box");
+    var txt=document.getElementById("pendentes-txt");
+    if(pend.length){ box.classList.remove("hidden"); txt.textContent=pend.length+" para enviar"; }
+    else box.classList.add("hidden");
+
+    var sec=document.getElementById("sec-locais"); sec.innerHTML="";
+    if(lista.length){
+      sec.appendChild(tituloSecao("Neste aparelho"));
+      lista.slice().reverse().forEach(function(l){
+        var row=linhaLev(l.cliente||"Sem cliente", l.dataHora,
+          l.sincronizado?"Enviado":"Pendente", l.sincronizado?"ok":"pend");
+        sec.appendChild(row);
+      });
+    }
+  });
+  // abertos do gestor (online)
+  var secA=document.getElementById("sec-abertos"); secA.innerHTML="";
+  if(navigator.onLine && URL_WEBAPP.indexOf("COLE_AQUI")<0){
+    apiPost({ acao:"listarAbertos" }).then(function(r){
+      if(r&&r.ok&&r.lista&&r.lista.length){
+        secA.appendChild(tituloSecao("Abertos pelo gestor — toque para preencher"));
+        r.lista.forEach(function(a){
+          var row=linhaLev(a.cliente||"Sem cliente", a.observacoes||"", "Aberto", "aberto");
+          row.onclick=function(){
+            var l=novoLevantamento();
+            l.id=a.id; l.cliente=a.cliente||""; l.colaborador=a.colaborador||""; l.observacoes=a.observacoes||"";
+            abrirWizard(l);
+          };
+          secA.appendChild(row);
+        });
+      }
+    }).catch(function(){});
+  }
+}
+function tituloSecao(t){ var d=document.createElement("div"); d.className="secao-titulo"; d.textContent=t; return d; }
+function linhaLev(titulo, sub, tagTxt, tagCls){
+  var row=document.createElement("div"); row.className="lista-lev";
+  var esq=document.createElement("div");
+  esq.innerHTML="<b>"+titulo+"</b>"+(sub?"<br><span style='color:#5A6B82;font-size:14px'>"+sub+"</span>":"");
+  var tag=document.createElement("span"); tag.className="tag "+tagCls; tag.textContent=tagTxt;
+  row.appendChild(esq); row.appendChild(tag); return row;
+}
+
+/* =========================================================
+   CONFIG + CONEXÃO
+   ========================================================= */
+function carregarConfig(){
+  var cache=localStorage.getItem("cfg");
+  if(cache){ try{ CFG=JSON.parse(cache); }catch(e){} }
+  if(navigator.onLine && URL_WEBAPP.indexOf("COLE_AQUI")<0){
+    apiPost({ acao:"getConfig" }).then(function(r){
+      if(r&&r.ok){
+        CFG={ bitolas:r.bitolas||CFG_PADRAO.bitolas,
+              disjuntores:r.disjuntores||CFG_PADRAO.disjuntores,
+              colaboradores:r.colaboradores||[] };
+        localStorage.setItem("cfg", JSON.stringify(CFG));
+      }
+    }).catch(function(){});
+  }
+}
+function atualizarConexao(){
+  var on=navigator.onLine;
+  document.getElementById("conn-txt").textContent=on?"Com internet":"Offline";
+  document.getElementById("conn-dot").className="dot"+(on?"":" off");
+}
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+var toastTimer=null;
+function toast(msg){
+  var t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove("show"); },3000);
+}
+
+/* =========================================================
+   EVENTOS + INÍCIO
+   ========================================================= */
+document.getElementById("btn-novo").onclick=function(){ abrirWizard(); };
+document.getElementById("btn-lista").onclick=mostrarHome;
+document.getElementById("btn-sync").onclick=sincronizar;
+document.getElementById("btn-voltar").onclick=function(){ if(passo===0) mostrarHome(); else irPasso(passo-1); };
+document.getElementById("btn-proximo").onclick=function(){
+  if(passo===ETAPAS.length-1) salvarLevantamento(); else irPasso(passo+1);
+};
+
+// gestor cria vazio
+document.getElementById("btn-gestor").onclick=function(){
+  document.getElementById("mini-gestor").classList.toggle("hidden");
+};
+document.getElementById("g-cancelar").onclick=function(){
+  document.getElementById("mini-gestor").classList.add("hidden");
+};
+document.getElementById("g-salvar").onclick=function(){
+  if(!navigator.onLine){ toast("Precisa de internet para criar para o campo."); return; }
+  var cliente=document.getElementById("g-cliente").value;
+  var obs=document.getElementById("g-obs").value;
+  if(!cliente){ toast("Informe o cliente/referência."); return; }
+  apiPost({ acao:"criarAberto", cliente:cliente, observacoes:obs }).then(function(r){
+    if(r&&r.ok){
+      toast("Levantamento aberto criado ✓");
+      document.getElementById("g-cliente").value=""; document.getElementById("g-obs").value="";
+      document.getElementById("mini-gestor").classList.add("hidden");
+      atualizarListas();
+    } else toast("Erro ao criar.");
+  }).catch(function(){ toast("Falha de conexão."); });
+};
+
+window.addEventListener("online", function(){ atualizarConexao(); carregarConfig(); sincronizar(); });
+window.addEventListener("offline", atualizarConexao);
+
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("./sw.js").catch(function(){});
+}
+
+atualizarConexao();
+carregarConfig();
+abrirDB().then(function(){ atualizarListas(); if(navigator.onLine) sincronizar(); });
+</script>
+</body>
+</html>

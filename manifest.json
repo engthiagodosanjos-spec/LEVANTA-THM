@@ -1,0 +1,15 @@
+{
+  "name": "Levantamento técnico — ThM Energia Solar",
+  "short_name": "Levantamento ThM",
+  "description": "Coleta de levantamento técnico em campo, funciona offline.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EEF2F7",
+  "theme_color": "#1E50A0",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
