@@ -161,7 +161,7 @@
 /* =========================================================
    CONFIGURAÇÃO — preencha depois de publicar o Web App (GAS)
    ========================================================= */
-var URL_WEBAPP = "https://script.google.com/macros/s/AKfycbwcjteFLt7YNOKI_VwQ5EjukkUUm57JTyBFPwsb3OuhEjOh_mC7sZDcCjdKW9_r_OHAsw/exec"; // termina em /exec
+var URL_WEBAPP = "COLE_AQUI_A_URL_DO_WEB_APP"; // termina em /exec
 
 var CFG_PADRAO = {
   bitolas:       ["6","10","16","25","35","50"],
@@ -241,14 +241,33 @@ function lerTodosDB(){
 }
 
 /* =========================================================
-   API (POST text/plain para evitar preflight de CORS)
+   API
+   - Leituras e ações leves: JSONP via GET (à prova de CORS no Apps Script)
+   - Envio com fotos: POST (grava) + confirmação por JSONP
    ========================================================= */
+function jsonp(params){
+  return new Promise(function(res, rej){
+    var cb = "cb_" + Date.now() + "_" + Math.floor(Math.random()*1000000);
+    var s = document.createElement("script");
+    var timer = setTimeout(function(){ limpar(); rej(new Error("timeout")); }, 20000);
+    function limpar(){
+      clearTimeout(timer);
+      try{ delete window[cb]; }catch(e){ window[cb] = undefined; }
+      if(s && s.parentNode) s.parentNode.removeChild(s);
+    }
+    window[cb] = function(data){ limpar(); res(data); };
+    var qs = "callback=" + cb;
+    for(var k in params){
+      if(params.hasOwnProperty(k))
+        qs += "&" + encodeURIComponent(k) + "=" + encodeURIComponent(params[k]);
+    }
+    s.src = URL_WEBAPP + "?" + qs;
+    s.onerror = function(){ limpar(); rej(new Error("erro de rede")); };
+    document.body.appendChild(s);
+  });
+}
 function apiPost(payload){
-  return fetch(URL_WEBAPP, {
-    method:"POST",
-    headers:{ "Content-Type":"text/plain;charset=utf-8" },
-    body: JSON.stringify(payload)
-  }).then(function(r){ return r.json(); });
+  return jsonp(payload);
 }
 
 /* =========================================================
@@ -540,11 +559,26 @@ function sincronizar(){
 function enviarFila(pend,i){
   if(i>=pend.length){ toast("Envio concluído ✓"); atualizarListas(); return; }
   var l=pend[i];
-  prepararEnvio(l).then(function(p){ return apiPost(p); })
-    .then(function(resp){
-      if(resp&&resp.ok){ l.sincronizado=true; return salvarDB(l).then(function(){ enviarFila(pend,i+1); }); }
-      else { toast("Erro: "+(resp&&resp.erro?resp.erro:"desconhecido")); }
-    }).catch(function(){ toast("Falha de conexão no envio."); });
+  prepararEnvio(l).then(function(p){
+    // POST grava no servidor (as fotos são grandes, precisa ser POST).
+    // Não dependemos de LER a resposta do POST (CORS pode bloquear a leitura).
+    return fetch(URL_WEBAPP, {
+      method:"POST",
+      headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body: JSON.stringify(p)
+    }).catch(function(){ return null; });
+  }).then(function(){
+    // Confirma por GET/JSONP se o levantamento foi gravado.
+    return jsonp({ acao:"existe", id:l.id });
+  }).then(function(r){
+    if(r && r.ok && r.existe){
+      l.sincronizado = true;
+      return salvarDB(l).then(function(){ enviarFila(pend, i+1); });
+    } else {
+      toast("Não confirmou o envio de "+(l.cliente||l.id)+". Tentará de novo.");
+      atualizarListas();
+    }
+  }).catch(function(){ toast("Falha de conexão no envio."); });
 }
 function prepararEnvio(l){
   var fotos=[]; var p=Promise.resolve();
@@ -623,6 +657,8 @@ function carregarConfig(){
               disjuntores:r.disjuntores||CFG_PADRAO.disjuntores,
               colaboradores:r.colaboradores||[] };
         localStorage.setItem("cfg", JSON.stringify(CFG));
+        // Se o wizard já estiver aberto, re-renderiza para a lista aparecer.
+        if(!document.getElementById("tela-wizard").classList.contains("hidden")) renderPasso();
       }
     }).catch(function(){});
   }
