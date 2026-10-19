@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#1E50A0">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <title>Levantamento técnico — ThM</title>
 <style>
   :root{
@@ -96,6 +97,13 @@
   .btn-mini{padding:13px; border:none; border-radius:12px; font-weight:700; font-size:15px; cursor:pointer}
   .btn-mini.azul{background:#E8F0FB; color:var(--azul)}
   .btn-mini.verm{background:var(--vermelho-bg); color:var(--vermelho)}
+  .map-overlay{position:fixed; inset:0; background:#fff; z-index:100; display:flex; flex-direction:column}
+  .map-topo{padding:14px 16px; background:var(--azul); color:#fff; display:flex;
+    justify-content:space-between; align-items:center; gap:10px; font-size:15px}
+  .map-topo b{font-weight:700}
+  #map{flex:1; width:100%}
+  .map-acoes{display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:14px}
+  .map-acoes .btn{margin-bottom:0}
   .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#15233B;
     color:#fff; padding:14px 20px; border-radius:30px; font-size:16px; z-index:50; opacity:0;
     transition:opacity .2s; pointer-events:none; max-width:90%}
@@ -166,8 +174,22 @@
 
 </div>
 
+<!-- Mapa (ajuste manual da localização) -->
+<div id="map-overlay" class="map-overlay hidden">
+  <div class="map-topo">
+    <span><b>Toque no mapa</b> para ajustar</span>
+    <span id="map-coord"></span>
+  </div>
+  <div id="map"></div>
+  <div class="map-acoes">
+    <button class="btn btn-branco" id="map-cancelar">Cancelar</button>
+    <button class="btn btn-azul" id="map-confirmar">Usar esta posição</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 /* =========================================================
    CONFIGURAÇÃO
@@ -501,7 +523,10 @@ function blocoGPS(alvo){
   function pinta(){
     if(lev[alvo+"Lat"]){
       status.className="coord-ok";
-      status.textContent="📍 "+Number(lev[alvo+"Lat"]).toFixed(6)+", "+Number(lev[alvo+"Lng"]).toFixed(6);
+      var prec=lev[alvo+"Prec"];
+      var extra = (prec==="ajustado") ? " · ajustado no mapa"
+                : (prec ? (" · precisão ± "+Math.round(prec)+" m") : "");
+      status.textContent="📍 "+Number(lev[alvo+"Lat"]).toFixed(6)+", "+Number(lev[alvo+"Lng"]).toFixed(6)+extra;
     } else { status.className="ajuda"; status.textContent="Nenhuma coordenada capturada ainda."; }
   }
   pinta();
@@ -512,14 +537,72 @@ function blocoGPS(alvo){
     btn.textContent="Capturando..."; btn.disabled=true;
     navigator.geolocation.getCurrentPosition(function(p){
       lev[alvo+"Lat"]=p.coords.latitude; lev[alvo+"Lng"]=p.coords.longitude;
+      lev[alvo+"Prec"]=p.coords.accuracy;
       btn.textContent="📍 Capturar novamente"; btn.disabled=false; pinta();
     },function(){
       toast("Não consegui o GPS. Ative a localização.");
       btn.textContent="📍 Capturar coordenada"; btn.disabled=false;
     },{ enableHighAccuracy:true, timeout:15000 });
   };
-  box.appendChild(status); box.appendChild(btn); return box;
+  box.appendChild(status); box.appendChild(btn);
+
+  // Ajuste manual no mapa — só com internet (usa mapa online).
+  if(navigator.onLine){
+    var btnMapa=document.createElement("button");
+    btnMapa.className="btn btn-branco"; btnMapa.textContent="🗺️ Ver no mapa e ajustar";
+    btnMapa.onclick=function(){ abrirMapa(alvo); };
+    box.appendChild(btnMapa);
+    var dica=document.createElement("div"); dica.className="ajuda";
+    dica.textContent="No mapa, toque no local certo ou arraste o pino para corrigir a posição.";
+    box.appendChild(dica);
+  }
+  return box;
 }
+
+/* ---------- Mapa (Leaflet) ---------- */
+var mapaLeaflet=null, mapaMarker=null, mapaAlvo=null;
+function abrirMapa(alvo){
+  if(typeof L==="undefined"){ toast("Mapa indisponível agora (sem internet?)."); return; }
+  mapaAlvo=alvo;
+  var lat=lev[alvo+"Lat"], lng=lev[alvo+"Lng"];
+  // Se ainda não capturou, tenta pegar a posição atual para centralizar.
+  if(!lat && navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(function(p){
+      lev[alvo+"Lat"]=p.coords.latitude; lev[alvo+"Lng"]=p.coords.longitude; lev[alvo+"Prec"]=p.coords.accuracy;
+      abrirMapa(alvo);
+    }, function(){ toast("Capture a coordenada primeiro."); });
+    return;
+  }
+  if(!lat){ toast("Capture a coordenada primeiro."); return; }
+  document.getElementById("map-overlay").classList.remove("hidden");
+  setTimeout(function(){
+    if(!mapaLeaflet){
+      mapaLeaflet=L.map("map").setView([lat,lng],18);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        { maxZoom:19, attribution:"© OpenStreetMap" }).addTo(mapaLeaflet);
+      mapaMarker=L.marker([lat,lng],{ draggable:true }).addTo(mapaLeaflet);
+      mapaMarker.on("dragend",function(){ var q=mapaMarker.getLatLng(); mostraCoordMapa(q.lat,q.lng); });
+      mapaLeaflet.on("click",function(e){ mapaMarker.setLatLng(e.latlng); mostraCoordMapa(e.latlng.lat,e.latlng.lng); });
+    } else {
+      mapaLeaflet.setView([lat,lng],18);
+      mapaMarker.setLatLng([lat,lng]);
+    }
+    mapaLeaflet.invalidateSize();
+    mostraCoordMapa(lat,lng);
+  },200);
+}
+function mostraCoordMapa(lat,lng){
+  document.getElementById("map-coord").textContent=Number(lat).toFixed(6)+", "+Number(lng).toFixed(6);
+}
+function confirmarMapa(){
+  if(mapaMarker && mapaAlvo){
+    var q=mapaMarker.getLatLng();
+    lev[mapaAlvo+"Lat"]=q.lat; lev[mapaAlvo+"Lng"]=q.lng; lev[mapaAlvo+"Prec"]="ajustado";
+  }
+  document.getElementById("map-overlay").classList.add("hidden");
+  renderPasso();
+}
+function fecharMapa(){ document.getElementById("map-overlay").classList.add("hidden"); }
 function blocoFotos(categoria, maxFotos){
   var box=document.createElement("div");
   var input=document.createElement("input");
@@ -855,6 +938,9 @@ document.getElementById("g-salvar").onclick=function(){
     } else toast("Erro ao criar.");
   }).catch(function(){ toast("Falha de conexão."); });
 };
+
+document.getElementById("map-confirmar").onclick=confirmarMapa;
+document.getElementById("map-cancelar").onclick=fecharMapa;
 
 window.addEventListener("online", function(){ atualizarConexao(); carregarConfig(); sincronizar(); });
 window.addEventListener("offline", atualizarConexao);
