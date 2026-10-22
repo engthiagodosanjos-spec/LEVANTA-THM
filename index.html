@@ -94,9 +94,11 @@
   .card-local{background:#fff; border:1px solid var(--borda); border-radius:14px; padding:14px 16px; margin-bottom:10px}
   .card-topo{display:flex; justify-content:space-between; align-items:center; gap:10px}
   .card-btns{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px}
+  .card-btns.tres{grid-template-columns:1fr 1fr 1fr}
   .btn-mini{padding:13px; border:none; border-radius:12px; font-weight:700; font-size:15px; cursor:pointer}
   .btn-mini.azul{background:#E8F0FB; color:var(--azul)}
   .btn-mini.verm{background:var(--vermelho-bg); color:var(--vermelho)}
+  .btn-mini.cinza{background:#EEF2F7; color:var(--texto)}
   .map-overlay{position:fixed; inset:0; background:#fff; z-index:100; display:flex; flex-direction:column}
   .map-topo{padding:14px 16px; background:var(--azul); color:#fff; display:flex;
     justify-content:space-between; align-items:center; gap:10px; font-size:15px}
@@ -134,7 +136,7 @@
     </div>
 
     <button class="btn btn-azul" id="btn-novo">➕ Novo levantamento</button>
-    <button class="btn btn-branco" id="btn-gestor">📋 Criar p/ o campo (gestor)</button>
+    <button class="btn btn-branco" id="btn-gestor">📋 Criar levantamento para edição futura</button>
 
     <div id="mini-gestor" class="mini-form hidden">
       <div class="rotulo">Novo levantamento aberto</div>
@@ -185,6 +187,15 @@
     <button class="btn btn-branco" id="map-cancelar">Cancelar</button>
     <button class="btn btn-azul" id="map-confirmar">Usar esta posição</button>
   </div>
+</div>
+
+<!-- Ver levantamento (somente leitura) -->
+<div id="ver-overlay" class="map-overlay hidden">
+  <div class="map-topo">
+    <span><b>Ver levantamento</b></span>
+    <button class="btn-mini cinza" id="ver-fechar" style="padding:8px 18px">Fechar</button>
+  </div>
+  <div id="ver-conteudo" style="flex:1; overflow:auto; padding:16px"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -759,17 +770,21 @@ function salvarLevantamento(){
     if(navigator.onLine) sincronizar();
   });
 }
-function sincronizar(){
-  if(URL_WEBAPP.indexOf("COLE_AQUI")>=0){ toast("Configure a URL do Web App."); return; }
-  if(!navigator.onLine){ toast("Sem internet agora."); return; }
+var sincronizando=false;
+function sincronizar(silencioso){
+  if(sincronizando) return;
+  if(URL_WEBAPP.indexOf("COLE_AQUI")>=0){ if(!silencioso) toast("Configure a URL do Web App."); return; }
+  if(!navigator.onLine){ if(!silencioso) toast("Sem internet agora."); return; }
   lerTodosDB().then(function(lista){
     var pend=lista.filter(function(l){ return !l.sincronizado; });
-    if(!pend.length){ toast("Nada para enviar."); return; }
-    toast("Enviando "+pend.length+"..."); enviarFila(pend,0);
+    if(!pend.length){ if(!silencioso) toast("Nada para enviar."); return; }
+    sincronizando=true;
+    if(!silencioso) toast("Enviando "+pend.length+"...");
+    enviarFila(pend,0,silencioso);
   });
 }
-function enviarFila(pend,i){
-  if(i>=pend.length){ toast("Envio concluído ✓"); atualizarListas(); return; }
+function enviarFila(pend,i,silencioso){
+  if(i>=pend.length){ sincronizando=false; if(!silencioso) toast("Envio concluído ✓"); atualizarListas(); return; }
   var l=pend[i];
   prepararEnvio(l).then(function(p){
     return fetch(URL_WEBAPP, {
@@ -782,12 +797,13 @@ function enviarFila(pend,i){
   }).then(function(r){
     if(r && r.ok && r.existe){
       l.sincronizado = true;
-      return salvarDB(l).then(function(){ enviarFila(pend, i+1); });
+      return salvarDB(l).then(function(){ enviarFila(pend, i+1, silencioso); });
     } else {
-      toast("Não confirmou o envio de "+(l.cliente||l.id)+". Tentará de novo.");
+      sincronizando=false;
+      if(!silencioso) toast("Não confirmou o envio de "+(l.cliente||l.id)+". Tentará de novo.");
       atualizarListas();
     }
-  }).catch(function(){ toast("Falha de conexão no envio."); });
+  }).catch(function(){ sincronizando=false; if(!silencioso) toast("Falha de conexão no envio."); });
 }
 function prepararEnvio(l){
   var fotos=[]; var p=Promise.resolve();
@@ -818,7 +834,8 @@ function atualizarListas(){
     var sec=document.getElementById("sec-locais"); sec.innerHTML="";
     if(lista.length){
       sec.appendChild(tituloSecao("Neste aparelho"));
-      lista.slice().reverse().forEach(function(l){
+      // Ordena por data (o ID começa com a data/hora): mais recente no topo.
+      lista.sort(function(a,b){ return (a.id<b.id)?1:(a.id>b.id)?-1:0; }).forEach(function(l){
         sec.appendChild(cardLocal(l));
       });
     }
@@ -852,19 +869,60 @@ function cardLocal(l){
   tag.textContent=l.sincronizado?"Enviado":"Pendente";
   topo.appendChild(esq); topo.appendChild(tag);
 
-  var btns=document.createElement("div"); btns.className="card-btns";
+  var btns=document.createElement("div"); btns.className="card-btns tres";
+  var bV=document.createElement("button"); bV.className="btn-mini cinza"; bV.textContent="👁️ Ver";
+  bV.onclick=function(){ verLevantamento(l); };
   var bE=document.createElement("button"); bE.className="btn-mini azul"; bE.textContent="✏️ Editar";
   bE.onclick=function(){ abrirWizard(l); };
   var bX=document.createElement("button"); bX.className="btn-mini verm"; bX.textContent="🗑️ Excluir";
   bX.onclick=function(){
-    var aviso = l.sincronizado ? " (Continuará salvo no Drive.)" : "";
-    if(confirm("Excluir este levantamento deste aparelho?"+aviso)){
+    var msg;
+    if(l.sincronizado){
+      msg="Excluir este levantamento DESTE APARELHO?\n\nEle continuará salvo no Drive.";
+    } else {
+      msg="⚠️ ATENÇÃO: este levantamento AINDA NÃO FOI ENVIADO.\n\nSe excluir, os dados e as fotos serão PERDIDOS para sempre deste aparelho. Esta ação NÃO pode ser desfeita.\n\nDeseja mesmo excluir?";
+    }
+    if(confirm(msg)){
       removerDB(l.id).then(function(){ toast("Levantamento excluído."); atualizarListas(); });
     }
   };
-  btns.appendChild(bE); btns.appendChild(bX);
+  btns.appendChild(bV); btns.appendChild(bE); btns.appendChild(bX);
   card.appendChild(topo); card.appendChild(btns);
   return card;
+}
+function verLevantamento(l){
+  var c=document.getElementById("ver-conteudo"); c.innerHTML="";
+  function item(r,v){ var d=document.createElement("div"); d.className="revisao-item";
+    d.innerHTML="<b>"+r+"</b>"+(v&&String(v).trim()?v:"—"); return d; }
+  c.appendChild(item("Cliente", l.cliente));
+  c.appendChild(item("Colaborador", l.colaborador));
+  c.appendChild(item("Tipo de ramal", l.tipoRamal));
+  c.appendChild(item("Coord. padrão", l.padraoLat?Number(l.padraoLat).toFixed(6)+", "+Number(l.padraoLng).toFixed(6):""));
+  c.appendChild(item("Coord. transformador", l.trafoLat?Number(l.trafoLat).toFixed(6)+", "+Number(l.trafoLng).toFixed(6):""));
+  c.appendChild(item("Nº transformador", l.numeroTrafo));
+  c.appendChild(item("Potência (kVA)", l.potenciaTrafo));
+  c.appendChild(item("Disjuntor", l.disjuntor?l.disjuntor+" A":""));
+  c.appendChild(item("Polos do disjuntor", l.polosDisjuntor));
+  c.appendChild(item("Bitola do cabo", l.bitolaCabo?l.bitolaCabo+" mm²":""));
+  c.appendChild(item("Observações", l.observacoes));
+  if(l.fotos && l.fotos.length){
+    var tt=document.createElement("div"); tt.className="secao-titulo";
+    tt.textContent="Fotos e vídeo ("+l.fotos.length+")"; c.appendChild(tt);
+    var g=document.createElement("div"); g.className="fotos";
+    l.fotos.forEach(function(f){
+      var card=document.createElement("div"); card.className="foto-card";
+      if((f.mime||"").indexOf("video")>=0){
+        var v=document.createElement("video"); v.src=URL.createObjectURL(f.blob); v.controls=true; card.appendChild(v);
+      } else {
+        var img=document.createElement("img"); img.src=URL.createObjectURL(f.blob); card.appendChild(img);
+      }
+      var lb=document.createElement("div"); lb.className="ajuda"; lb.style.margin="6px 0 0"; lb.textContent=f.categoria||"";
+      card.appendChild(lb);
+      g.appendChild(card);
+    });
+    c.appendChild(g);
+  }
+  document.getElementById("ver-overlay").classList.remove("hidden");
 }
 function linhaLev(titulo, sub, tagTxt, tagCls){
   var row=document.createElement("div"); row.className="lista-lev";
@@ -941,9 +999,20 @@ document.getElementById("g-salvar").onclick=function(){
 
 document.getElementById("map-confirmar").onclick=confirmarMapa;
 document.getElementById("map-cancelar").onclick=fecharMapa;
+document.getElementById("ver-fechar").onclick=function(){ document.getElementById("ver-overlay").classList.add("hidden"); };
 
-window.addEventListener("online", function(){ atualizarConexao(); carregarConfig(); sincronizar(); });
+// Sincronização automática ao reconectar.
+window.addEventListener("online", function(){ atualizarConexao(); carregarConfig(); sincronizar(true); });
 window.addEventListener("offline", atualizarConexao);
+
+// Reforço: a cada 30 s, se houver internet e pendentes, envia sozinho (silencioso).
+setInterval(function(){
+  if(navigator.onLine && URL_WEBAPP.indexOf("COLE_AQUI")<0 && !sincronizando){
+    lerTodosDB().then(function(lista){
+      if(lista.some(function(l){ return !l.sincronizado; })) sincronizar(true);
+    });
+  }
+}, 30000);
 
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("./sw.js").catch(function(){});
