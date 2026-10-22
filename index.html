@@ -844,21 +844,44 @@ function atualizarListas(){
   if(navigator.onLine && URL_WEBAPP.indexOf("COLE_AQUI")<0){
     apiGet({ acao:"listarAbertos" }).then(function(r){
       if(r&&r.ok&&r.lista&&r.lista.length){
-        secA.appendChild(tituloSecao("Abertos pelo gestor — toque para preencher"));
+        secA.appendChild(tituloSecao("Abertos pelo gestor"));
         r.lista.forEach(function(a){
-          var row=linhaLev(a.cliente||"Sem cliente", a.observacoes||"", "Aberto", "aberto");
-          row.onclick=function(){
-            var l=novoLevantamento();
-            l.id=a.id; l.cliente=a.cliente||""; l.colaborador=a.colaborador||""; l.observacoes=a.observacoes||"";
-            abrirWizard(l);
-          };
-          secA.appendChild(row);
+          secA.appendChild(cardAberto(a));
         });
       }
     }).catch(function(){});
   }
 }
 function tituloSecao(t){ var d=document.createElement("div"); d.className="secao-titulo"; d.textContent=t; return d; }
+function cardAberto(a){
+  var card=document.createElement("div"); card.className="card-local";
+  var topo=document.createElement("div"); topo.className="card-topo";
+  var esq=document.createElement("div");
+  esq.innerHTML="<b>"+(a.cliente||"Sem cliente")+"</b>"+(a.observacoes?"<br><span style='color:#5A6B82;font-size:14px'>"+a.observacoes+"</span>":"");
+  var tag=document.createElement("span"); tag.className="tag aberto"; tag.textContent="Aberto";
+  topo.appendChild(esq); topo.appendChild(tag);
+
+  var btns=document.createElement("div"); btns.className="card-btns";
+  var bP=document.createElement("button"); bP.className="btn-mini azul"; bP.textContent="✏️ Preencher";
+  bP.onclick=function(){
+    var l=novoLevantamento();
+    l.id=a.id; l.cliente=a.cliente||""; l.colaborador=a.colaborador||""; l.observacoes=a.observacoes||"";
+    abrirWizard(l);
+  };
+  var bX=document.createElement("button"); bX.className="btn-mini verm"; bX.textContent="🗑️ Excluir";
+  bX.onclick=function(){
+    if(confirm("Excluir este levantamento aberto?\n\nEle será removido da lista do gestor.")){
+      bX.disabled=true;
+      apiGet({ acao:"excluirAberto", id:a.id }).then(function(res){
+        if(res && res.ok && res.excluido){ toast("Levantamento aberto excluído."); atualizarListas(); }
+        else { toast((res && res.motivo) || "Não foi possível excluir."); bX.disabled=false; }
+      }).catch(function(){ toast("Falha de conexão."); bX.disabled=false; });
+    }
+  };
+  btns.appendChild(bP); btns.appendChild(bX);
+  card.appendChild(topo); card.appendChild(btns);
+  return card;
+}
 function cardLocal(l){
   var card=document.createElement("div"); card.className="card-local";
   var topo=document.createElement("div"); topo.className="card-topo";
@@ -982,11 +1005,16 @@ document.getElementById("btn-gestor").onclick=function(){
 document.getElementById("g-cancelar").onclick=function(){
   document.getElementById("mini-gestor").classList.add("hidden");
 };
+var criandoAberto=false;
 document.getElementById("g-salvar").onclick=function(){
+  if(criandoAberto) return;                       // trava duplo clique
   if(!navigator.onLine){ toast("Precisa de internet para criar para o campo."); return; }
   var cliente=document.getElementById("g-cliente").value;
   var obs=document.getElementById("g-obs").value;
   if(!cliente){ toast("Informe o cliente/referência."); return; }
+  criandoAberto=true;
+  var botao=this; botao.disabled=true; var txt=botao.textContent; botao.textContent="Criando...";
+  function liberar(){ criandoAberto=false; botao.disabled=false; botao.textContent=txt; }
   apiGet({ acao:"criarAberto", cliente:cliente, observacoes:obs }).then(function(r){
     if(r&&r.ok){
       toast("Levantamento aberto criado ✓");
@@ -994,7 +1022,8 @@ document.getElementById("g-salvar").onclick=function(){
       document.getElementById("mini-gestor").classList.add("hidden");
       atualizarListas();
     } else toast("Erro ao criar.");
-  }).catch(function(){ toast("Falha de conexão."); });
+    liberar();
+  }).catch(function(){ toast("Falha de conexão."); liberar(); });
 };
 
 document.getElementById("map-confirmar").onclick=confirmarMapa;
