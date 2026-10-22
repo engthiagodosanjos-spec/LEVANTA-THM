@@ -327,8 +327,9 @@ function apiGet(params){
     if(params.hasOwnProperty(k))
       qs.push(encodeURIComponent(k) + "=" + encodeURIComponent(params[k]));
   }
+  qs.push("_=" + Date.now()); // evita resposta em cache (Safari)
   var url = URL_WEBAPP + "?" + qs.join("&");
-  return fetch(url, { method:"GET" }).then(function(r){
+  return fetch(url, { method:"GET", cache:"no-store" }).then(function(r){
     if(!r.ok) throw new Error("http " + r.status);
     return r.json();
   }).catch(function(){
@@ -873,8 +874,15 @@ function cardAberto(a){
     if(confirm("Excluir este levantamento aberto?\n\nEle será removido da lista do gestor.")){
       bX.disabled=true;
       apiGet({ acao:"excluirAberto", id:a.id }).then(function(res){
-        if(res && res.ok && res.excluido){ toast("Levantamento aberto excluído."); atualizarListas(); }
-        else { toast((res && res.motivo) || "Não foi possível excluir."); bX.disabled=false; }
+        if(res && res.ok && (res.excluido || /encontrado/i.test(res.motivo||""))){
+          // some da tela na hora (mesmo se já tinha sido excluído antes)
+          if(card.parentNode) card.parentNode.removeChild(card);
+          toast("Levantamento aberto excluído.");
+          atualizarListas();
+        } else {
+          toast((res && res.motivo) || "Não foi possível excluir.");
+          bX.disabled=false;
+        }
       }).catch(function(){ toast("Falha de conexão."); bX.disabled=false; });
     }
   };
