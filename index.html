@@ -787,38 +787,71 @@ function sincronizar(silencioso){
 function enviarFila(pend,i,silencioso){
   if(i>=pend.length){ sincronizando=false; if(!silencioso) toast("Envio concluído ✓"); atualizarListas(); return; }
   var l=pend[i];
-  prepararEnvio(l).then(function(p){
-    return fetch(URL_WEBAPP, {
-      method:"POST",
-      headers:{ "Content-Type":"text/plain;charset=utf-8" },
-      body: JSON.stringify(p)
-    }).catch(function(){ return null; });
-  }).then(function(){
-    return apiGet({ acao:"existe", id:l.id });
-  }).then(function(r){
-    if(r && r.ok && r.existe){
-      l.sincronizado = true;
-      return salvarDB(l).then(function(){ enviarFila(pend, i+1, silencioso); });
+  if(!silencioso) toast("Enviando "+(l.cliente||l.id)+"...");
+  enviarUm(l).then(function(ok){
+    if(ok){
+      l.sincronizado=true;
+      return salvarDB(l).then(function(){ enviarFila(pend,i+1,silencioso); });
     } else {
       sincronizando=false;
-      if(!silencioso) toast("Não confirmou o envio de "+(l.cliente||l.id)+". Tentará de novo.");
+      if(!silencioso) toast("Não concluiu o envio de "+(l.cliente||l.id)+". Vai tentar de novo.");
       atualizarListas();
     }
-  }).catch(function(){ sincronizando=false; if(!silencioso) toast("Falha de conexão no envio."); });
+  }).catch(function(){
+    sincronizando=false;
+    if(!silencioso) toast("Falha no envio. Vai tentar de novo quando houver sinal.");
+    atualizarListas();
+  });
 }
-function prepararEnvio(l){
-  var fotos=[]; var p=Promise.resolve();
-  (l.fotos||[]).forEach(function(f){
-    p=p.then(function(){ return blobParaBase64(f.blob).then(function(b64){
-      fotos.push({ categoria:f.categoria, mime:f.mime||"image/jpeg", base64:b64 }); }); });
+
+// POST que não depende de LER a resposta (o Apps Script/Safari bloqueiam a leitura).
+// A confirmação real é feita por statusEnvio (contagem de arquivos na pasta).
+function postJSON(payload){
+  return fetch(URL_WEBAPP, {
+    method:"POST",
+    headers:{ "Content-Type":"text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  }).then(function(){ return true; }).catch(function(){ return true; });
+}
+function montarDados(l){
+  return { id:l.id, dataHora:l.dataHora, colaborador:l.colaborador, cliente:l.cliente,
+    tipoRamal:l.tipoRamal, disjuntor:l.disjuntor, polosDisjuntor:l.polosDisjuntor, bitolaCabo:l.bitolaCabo,
+    padraoLat:l.padraoLat, padraoLng:l.padraoLng, trafoLat:l.trafoLat, trafoLng:l.trafoLng,
+    numeroTrafo:l.numeroTrafo, potenciaTrafo:l.potenciaTrafo, observacoes:l.observacoes };
+}
+function numerarFotos(fotos){
+  var cont={}, out=[];
+  (fotos||[]).forEach(function(f){
+    var cat=f.categoria||"arquivo";
+    cont[cat]=(cont[cat]||0)+1;
+    out.push({ categoria:cat, mime:f.mime||"image/jpeg", blob:f.blob, indice:cont[cat] });
   });
-  return p.then(function(){
-    return { acao:"enviar", id:l.id, dataHora:l.dataHora, colaborador:l.colaborador, cliente:l.cliente,
-      tipoRamal:l.tipoRamal, disjuntor:l.disjuntor, polosDisjuntor:l.polosDisjuntor, bitolaCabo:l.bitolaCabo,
-      padraoLat:l.padraoLat, padraoLng:l.padraoLng, trafoLat:l.trafoLat, trafoLng:l.trafoLng,
-      numeroTrafo:l.numeroTrafo, potenciaTrafo:l.potenciaTrafo,
-      observacoes:l.observacoes, fotos:fotos };
-  });
+  return out;
+}
+function anexarSeq(l, arquivos, idx){
+  if(idx>=arquivos.length) return Promise.resolve();
+  var a=arquivos[idx];
+  return blobParaBase64(a.blob).then(function(b64){
+    return postJSON({ acao:"anexarFoto", id:l.id, cliente:l.cliente,
+      categoria:a.categoria, mime:a.mime, indice:a.indice, base64:b64 });
+  }).then(function(){ return anexarSeq(l, arquivos, idx+1); });
+}
+// Envia UM levantamento em partes (1 arquivo por requisição) e confirma pela contagem.
+function enviarUm(l){
+  var arquivos=numerarFotos(l.fotos||[]);
+  var ini=montarDados(l); ini.acao="iniciarEnvio";
+  return postJSON(ini)
+    .then(function(){ return anexarSeq(l, arquivos, 0); })
+    .then(function(){ return postJSON({ acao:"finalizarEnvio", id:l.id, cliente:l.cliente, qtdFotos:arquivos.length }); })
+    .then(function(){
+      // dá um instante para o Drive refletir os arquivos antes de confirmar
+      return new Promise(function(res){ setTimeout(res, 1200); });
+    })
+    .then(function(){ return apiGet({ acao:"statusEnvio", id:l.id, cliente:l.cliente }); })
+    .then(function(st){
+      // esperado = nº de fotos/vídeos + 1 (o arquivo .txt)
+      return !!(st && st.ok && st.existe && st.arquivos >= (arquivos.length + 1));
+    });
 }
 
 /* =========================================================
@@ -1001,7 +1034,7 @@ function toast(msg){
    ========================================================= */
 document.getElementById("btn-novo").onclick=function(){ abrirWizard(); };
 document.getElementById("btn-lista").onclick=mostrarHome;
-document.getElementById("btn-sync").onclick=sincronizar;
+document.getElementById("btn-sync").onclick=function(){ sincronizar(false); };
 document.getElementById("btn-voltar").onclick=function(){ if(passo===0) mostrarHome(); else irPasso(passo-1); };
 document.getElementById("btn-proximo").onclick=function(){
   if(passo===ETAPAS.length-1) salvarLevantamento(); else irPasso(passo+1);
