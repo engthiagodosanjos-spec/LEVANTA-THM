@@ -150,6 +150,7 @@
 
     <div id="sec-abertos"></div>
     <div id="sec-locais"></div>
+    <div id="sec-recebidos"></div>
 
     <div class="rodape">✓ Os dados são salvos neste aparelho</div>
   </div>
@@ -875,6 +876,7 @@ function atualizarListas(){
     }
   });
   var secA=document.getElementById("sec-abertos"); secA.innerHTML="";
+  var secR=document.getElementById("sec-recebidos"); secR.innerHTML="";
   if(navigator.onLine && URL_WEBAPP.indexOf("COLE_AQUI")<0){
     apiGet({ acao:"listarAbertos" }).then(function(r){
       if(r&&r.ok&&r.lista&&r.lista.length){
@@ -884,9 +886,45 @@ function atualizarListas(){
         });
       }
     }).catch(function(){});
+    apiGet({ acao:"listarRecebidos" }).then(function(r){
+      if(r&&r.ok&&r.lista&&r.lista.length){
+        secR.appendChild(tituloSecao("Levantamentos recebidos"));
+        r.lista.sort(function(a,b){ return (a.id<b.id)?1:(a.id>b.id)?-1:0; }).forEach(function(x){
+          secR.appendChild(cardRecebido(x));
+        });
+      }
+    }).catch(function(){});
   }
 }
 function tituloSecao(t){ var d=document.createElement("div"); d.className="secao-titulo"; d.textContent=t; return d; }
+function cardRecebido(x){
+  var card=document.createElement("div"); card.className="card-local";
+  var topo=document.createElement("div"); topo.className="card-topo";
+  var esq=document.createElement("div");
+  var sub=(x.dataHora||"")+(x.colaborador?(" · "+x.colaborador):"");
+  esq.innerHTML="<b>"+(x.cliente||"Sem cliente")+"</b><br><span style='color:#5A6B82;font-size:14px'>"+sub+"</span>";
+  var tag=document.createElement("span"); tag.className="tag ok"; tag.textContent="Recebido";
+  topo.appendChild(esq); topo.appendChild(tag);
+
+  var btns=document.createElement("div"); btns.className="card-btns";
+  var bD=document.createElement("button"); bD.className="btn-mini azul"; bD.textContent="📂 Abrir no Drive";
+  bD.onclick=function(){ if(x.pasta) window.open(x.pasta,"_blank"); else toast("Sem link da pasta."); };
+  var bA=document.createElement("button"); bA.className="btn-mini cinza"; bA.textContent="🗄️ Arquivar";
+  bA.onclick=function(){
+    if(confirm("Arquivar este levantamento?\n\nEle deixa de aparecer no app, mas continua salvo no Drive.")){
+      bA.disabled=true;
+      apiGet({ acao:"arquivar", id:x.id }).then(function(res){
+        if(res && res.ok && res.arquivado){
+          if(card.parentNode) card.parentNode.removeChild(card);
+          toast("Levantamento arquivado.");
+        } else { toast((res && res.motivo) || "Não foi possível arquivar."); bA.disabled=false; }
+      }).catch(function(){ toast("Falha de conexão."); bA.disabled=false; });
+    }
+  };
+  btns.appendChild(bD); btns.appendChild(bA);
+  card.appendChild(topo); card.appendChild(btns);
+  return card;
+}
 function cardAberto(a){
   var card=document.createElement("div"); card.className="card-local";
   var topo=document.createElement("div"); topo.className="card-topo";
