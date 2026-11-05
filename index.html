@@ -906,10 +906,12 @@ function cardRecebido(x){
   var tag=document.createElement("span"); tag.className="tag ok"; tag.textContent="Recebido";
   topo.appendChild(esq); topo.appendChild(tag);
 
-  var btns=document.createElement("div"); btns.className="card-btns";
-  var bD=document.createElement("button"); bD.className="btn-mini azul"; bD.textContent="📂 Abrir no Drive";
+  var btns=document.createElement("div"); btns.className="card-btns tres";
+  var bV=document.createElement("button"); bV.className="btn-mini cinza"; bV.textContent="👁️ Ver";
+  bV.onclick=function(){ verRecebido(x); };
+  var bD=document.createElement("button"); bD.className="btn-mini azul"; bD.textContent="📂 Drive";
   bD.onclick=function(){ if(x.pasta) window.open(x.pasta,"_blank"); else toast("Sem link da pasta."); };
-  var bA=document.createElement("button"); bA.className="btn-mini cinza"; bA.textContent="🗄️ Arquivar";
+  var bA=document.createElement("button"); bA.className="btn-mini verm"; bA.textContent="🗄️ Arquivar";
   bA.onclick=function(){
     if(confirm("Arquivar este levantamento?\n\nEle deixa de aparecer no app, mas continua salvo no Drive.")){
       bA.disabled=true;
@@ -921,9 +923,66 @@ function cardRecebido(x){
       }).catch(function(){ toast("Falha de conexão."); bA.disabled=false; });
     }
   };
-  btns.appendChild(bD); btns.appendChild(bA);
+  btns.appendChild(bV); btns.appendChild(bD); btns.appendChild(bA);
   card.appendChild(topo); card.appendChild(btns);
   return card;
+}
+// Ver um levantamento recebido (de qualquer colaborador) com fotos, dentro do app.
+function verRecebido(x){
+  var c=document.getElementById("ver-conteudo"); c.innerHTML="";
+  var carregando=document.createElement("div"); carregando.className="ajuda";
+  carregando.textContent="Carregando levantamento...";
+  c.appendChild(carregando);
+  document.getElementById("ver-overlay").classList.remove("hidden");
+  if(!navigator.onLine){ c.innerHTML="<div class='ajuda'>Precisa de internet para ver um levantamento recebido.</div>"; return; }
+  apiGet({ acao:"detalhes", id:x.id, cliente:x.cliente }).then(function(r){
+    c.innerHTML="";
+    if(!r || !r.ok){ c.innerHTML="<div class='ajuda'>Não foi possível carregar.</div>"; return; }
+    var d=r.dados||{};
+    function item(rot,val){ var e=document.createElement("div"); e.className="revisao-item";
+      e.innerHTML="<b>"+rot+"</b>"+(val && String(val).trim()?val:"—"); return e; }
+    c.appendChild(item("Cliente", d.cliente));
+    c.appendChild(item("Colaborador", d.colaborador));
+    c.appendChild(item("Data", d.dataHora));
+    c.appendChild(item("Tipo de ramal", d.tipoRamal));
+    c.appendChild(item("Coord. padrão", d.padraoLat?(Number(d.padraoLat).toFixed(6)+", "+Number(d.padraoLng).toFixed(6)):""));
+    c.appendChild(item("Coord. transformador", d.trafoLat?(Number(d.trafoLat).toFixed(6)+", "+Number(d.trafoLng).toFixed(6)):""));
+    c.appendChild(item("Nº transformador", d.numeroTrafo));
+    c.appendChild(item("Potência (kVA)", d.potenciaTrafo));
+    c.appendChild(item("Disjuntor", d.disjuntor?d.disjuntor+" A":""));
+    c.appendChild(item("Polos do disjuntor", d.polosDisjuntor));
+    c.appendChild(item("Bitola do cabo", d.bitolaCabo?d.bitolaCabo+" mm²":""));
+    c.appendChild(item("Observações", d.observacoes));
+
+    var arqs=r.arquivos||[];
+    var imgs=arqs.filter(function(a){ return a.isImg; });
+    var vids=arqs.filter(function(a){ return a.isVideo; });
+    if(imgs.length){
+      var tt=document.createElement("div"); tt.className="secao-titulo"; tt.textContent="Fotos ("+imgs.length+")"; c.appendChild(tt);
+      var g=document.createElement("div"); g.className="fotos"; c.appendChild(g);
+      carregarImagensRec(g, imgs, 0);
+    }
+    if(vids.length){
+      var tv=document.createElement("div"); tv.className="secao-titulo"; tv.textContent="Vídeo"; c.appendChild(tv);
+      var bvid=document.createElement("button"); bvid.className="btn btn-branco"; bvid.textContent="🎥 Abrir vídeo no Drive";
+      bvid.onclick=function(){ if(d.pasta) window.open(d.pasta,"_blank"); };
+      c.appendChild(bvid);
+    }
+  }).catch(function(){ c.innerHTML="<div class='ajuda'>Falha de conexão.</div>"; });
+}
+function carregarImagensRec(g, imgs, i){
+  if(i>=imgs.length) return;
+  var card=document.createElement("div"); card.className="foto-card";
+  var ph=document.createElement("div"); ph.className="ajuda"; ph.textContent="carregando foto..."; card.appendChild(ph);
+  g.appendChild(card);
+  apiGet({ acao:"arquivo", fileId:imgs[i].id }).then(function(r){
+    card.innerHTML="";
+    if(r && r.ok && r.base64){
+      var img=document.createElement("img"); img.src="data:"+(r.mime||"image/jpeg")+";base64,"+r.base64; card.appendChild(img);
+      var lb=document.createElement("div"); lb.className="ajuda"; lb.style.margin="6px 0 0"; lb.textContent=imgs[i].nome||""; card.appendChild(lb);
+    } else { card.textContent="(erro ao carregar foto)"; }
+    carregarImagensRec(g, imgs, i+1);
+  }).catch(function(){ card.textContent="(falha ao carregar)"; carregarImagensRec(g, imgs, i+1); });
 }
 function cardAberto(a){
   var card=document.createElement("div"); card.className="card-local";
